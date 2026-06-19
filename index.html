@@ -250,7 +250,7 @@ const FR_ORDER = ["pre","producao","locacao","tecnica","equip","logistica","elen
 const DEFAULTS = {
   projName:"Ford Ranger Limited — 2 Diárias",
   cliente:"Ford Brasil", data:"", responsavel:"Stage Films",
-  fiscal:{taxa:30, imposto:15, desconto:0, verba:65000},
+  fiscal:{taxa:30, imposto:15, desconto:0, verba:65000, reservaPct:0},
   items:{
     pre:[{d:"Dir. Produção",q:1,vi:3000,v:3000,i:"Lua"},{d:"Pré-Operacional",q:1,vi:1000,v:1000,i:"Nayla"}],
     locacao:[{d:"Locação",q:1,vi:3500,v:3500,i:"Fazenda Embauva"}],
@@ -288,6 +288,7 @@ function load(){
 function migrate(st){
   // garante campos novos em dados antigos
   if(st.showIdeal===undefined) st.showIdeal=false;
+  if(st.fiscal && st.fiscal.reservaPct===undefined) st.fiscal.reservaPct=0;
   if(st.items){
     Object.keys(st.items).forEach(cat=>{
       (st.items[cat]||[]).forEach(it=>{
@@ -472,38 +473,54 @@ function subtotalIdeal(){return CATS.reduce((s,c)=>s+catIdeal(c.id),0);}
 
 function calc(){
   const sub=subtotal();          // subtotal COBRADO = custo de produção (o que soma)
-  const subIdeal=subtotalIdeal(); // subtotal IDEAL (comparação de preço)
+  const subIdeal=subtotalIdeal(); // subtotal IDEAL (referência/meta por item)
   const t=S.fiscal.taxa/100, i=S.fiscal.imposto/100, d=S.fiscal.desconto/100;
 
   // Preço com taxa + imposto (ambos somados por cima do subtotal)
-  const totalCalc  = sub*(1+t+i-d);       // total que vai ao cliente
-  const totalIdeal = subIdeal*(1+t+i-d);  // total se cobrasse o ideal
+  const totalCalc  = sub*(1+t+i-d);       // total que vai ao cliente, com base no que está cobrado hoje
+  const totalIdeal = subIdeal*(1+t+i-d);  // total se cobrasse o ideal cheio em todo item
   const taxaVal = sub*t, impVal = sub*i, descVal = sub*d;
 
   // LUCRO REAL = Taxa da Produtora cheia (o imposto é repassado ao cliente, não toca a Stage)
-  // Se houver desconto concedido (%), ele sai da taxa.
   const lucro = taxaVal - descVal;
   const margem = totalCalc>0 ? lucro/totalCalc : 0;
 
   // Verba negociada (cliente). Se 0, usa o total calculado.
   const verba = S.fiscal.verba>0 ? S.fiscal.verba : totalCalc;
 
+  // Gap entre o que a verba permite e o que está sendo cobrado hoje
+  // gapVerba > 0  => tem folga (verba maior que o total atual) -> dá pra subir itens
+  // gapVerba < 0  => falta verba (verba menor que o total atual) -> precisa cortar
+  const gapVerba = verba - totalCalc;
+
+  // Reserva de segurança: % do gap (quando positivo) que vai virar aumento real nos itens,
+  // subindo cada item na direção do seu Valor Ideal (limitado ao próprio ideal — nunca passa dele)
+  const reservaPct = (S.fiscal.reservaPct||0)/100;
+  const folgaDisponivel = Math.max(0, subIdeal - sub); // o quanto ainda dá pra subir (limitado pelo ideal)
+  // Convertendo o gap (que está em valor FINAL, com taxa+imposto) para impacto no SUBTOTAL:
+  const gapEmSubtotal = gapVerba>0 ? gapVerba/(1+t+i) : 0;
+  const reservaAlvo = Math.min(folgaDisponivel, gapEmSubtotal) * reservaPct; // quanto subir no subtotal
+  const subComReserva = sub + reservaAlvo;
+  const totalComReserva = subComReserva*(1+t+i-d);
+  const lucroComReserva = subComReserva*t - descVal;
+
   // Disciplina de preço (quando usa Valor Ideal): ideal × cobrado
   const descontoVsIdeal = totalIdeal - totalCalc;
   const descontoVsIdealP = totalIdeal>0 ? descontoVsIdeal/totalIdeal : 0;
 
-  // Para Ajuste de Escopo: custo máx de produção que cabe na verba
+  // Para Ajuste de Escopo: custo máx de produção que cabe na verba (quando a verba é MENOR que o total)
   const custoMax = S.fiscal.verba>0 ? verba/(1+t+i) : sub;
   const corteR = Math.max(0, sub - custoMax);
   const corteP = sub>0 ? corteR/sub : 0;
 
   // Lucro se a verba negociada for menor que o total calculado:
-  // a verba cobre custo+imposto primeiro; o que sobra é o lucro real
-  const custoMaisImposto = sub + impVal;           // o que a Stage precisa repassar (produção + governo)
-  const lucroNaVerba = verba - custoMaisImposto;    // o que realmente sobra na verba negociada
+  const custoMaisImposto = sub + impVal;
+  const lucroNaVerba = verba - custoMaisImposto;
 
   return {sub,subIdeal,totalCalc,totalIdeal,taxaVal,impVal,descVal,
-    lucro,margem,verba,descontoVsIdeal,descontoVsIdealP,
+    lucro,margem,verba,gapVerba,reservaPct,folgaDisponivel,reservaAlvo,
+    subComReserva,totalComReserva,lucroComReserva,
+    descontoVsIdeal,descontoVsIdealP,
     custoMax,corteR,corteP,custoMaisImposto,lucroNaVerba,t,i,d};
 }
 
@@ -654,15 +671,50 @@ function resultPanelHTML(){
   const k=calc(), f=S.fiscal;
   const usaVerba = f.verba>0 && f.verba < k.totalCalc;
   const lucroReal = usaVerba ? k.lucroNaVerba : k.lucro;
+  const temFolga = k.gapVerba > 0.5; // verba maior que o total — tem espaço pra subir
+  const temFalta = k.gapVerba < -0.5; // verba menor que o total — falta dinheiro
+  const temIdealDiff = k.subIdeal > k.sub + 0.5;
+
   return `<div class="panel-title">Resultado</div>
-    ${S.showIdeal&&k.subIdeal!==k.sub?`<div class="res-row"><span class="rlabel" style="color:#8a7a3a">Subtotal ideal (referência)</span><span class="rval" style="color:#d4b84a">${fmt(k.subIdeal)}</span></div>`:''}
+
+    ${temIdealDiff?`<div class="res-row"><span class="rlabel" style="color:#8a7a3a">Verba ideal (soma do Valor Ideal por item)</span><span class="rval" style="color:#d4b84a">${fmt(k.totalIdeal)}</span></div>`:''}
+
+    <div style="background:#0a0a0a;border:1px solid var(--line);border-radius:8px;padding:14px 16px;margin:10px 0">
+      <div style="font-size:10px;color:var(--txt-dim);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px">Total a cobrar ao cliente (subtotal + taxa + imposto, já somado)</div>
+      <div style="font-size:28px;font-weight:700;font-family:'DM Sans',sans-serif;color:var(--gold)">${fmt(k.totalCalc)}</div>
+    </div>
+
     <div class="res-row"><span class="rlabel">Subtotal de produção (o que custa)</span><span class="rval">${fmt(k.sub)}</span></div>
     <div class="res-row"><span class="rlabel sub">↳ Taxa da Produtora (${f.taxa}%) — seu lucro</span><span class="rval" style="color:var(--green)">${fmt(k.taxaVal)}</span></div>
     <div class="res-row"><span class="rlabel sub">↳ Impostos / NF (${f.imposto}%) — repassado</span><span class="rval">${fmt(k.impVal)}</span></div>
     ${f.desconto>0?`<div class="res-row"><span class="rlabel sub">↳ Desconto (${f.desconto}%)</span><span class="rval v-red">−${fmt(k.descVal)}</span></div>`:''}
-    <div class="res-big"><div class="rb-label">Total a cobrar ao cliente</div><div class="rb-val">${fmt(k.totalCalc)}</div></div>
-    ${f.verba>0?`<div class="res-row" style="margin-top:10px"><span class="rlabel">Verba negociada (cliente)</span><span class="rval">${fmt(k.verba)}</span></div>`:''}
-    <div class="res-big lucro" style="border-color:${lucroReal>0?'#2a5c34':'#5c2620'}"><div class="rb-label">Lucro real da Stage ${usaVerba?'(na verba negociada)':'(Taxa da Produtora)'}</div><div class="rb-val ${lucroReal>0?'v-green':'v-red'}">${fmt(lucroReal)}</div></div>`;
+
+    ${f.verba>0?`
+    <div class="res-row" style="margin-top:10px"><span class="rlabel">Verba negociada (cliente)</span><span class="rval">${fmt(k.verba)}</span></div>
+    <div class="res-row"><span class="rlabel sub">↳ Diferença vs total calculado</span><span class="rval ${temFolga?'v-green':temFalta?'v-yellow':''}">${temFolga?'+':''}${fmt(k.gapVerba)} ${temFolga?'(folga — dá pra cobrar mais)':temFalta?'(abaixo do total cheio — confira o lucro real abaixo)':'(bateu certinho)'}</span></div>
+    `:''}
+
+    <div class="res-big lucro" style="border-color:${lucroReal>0?'#2a5c34':'#5c2620'}"><div class="rb-label">Lucro real da Stage ${usaVerba?'(na verba negociada)':'(Taxa da Produtora)'}</div><div class="rb-val ${lucroReal>0?'v-green':'v-red'}">${fmt(lucroReal)}</div></div>
+
+    ${temFolga && k.folgaDisponivel>0.5 ? `
+    <div style="margin-top:16px;padding:14px 16px;background:#15120a;border:1px solid #3a3320;border-radius:8px">
+      <div style="font-size:10px;color:var(--gold);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px">💰 Reserva de segurança disponível</div>
+      <div style="font-size:11px;color:#cbb878;line-height:1.6;margin-bottom:10px">A verba do cliente (${fmt(k.verba)}) tem folga de <b>${fmt(k.gapVerba)}</b> sobre o que está cobrado hoje. Você tem <b>${fmt(k.folgaDisponivel)}</b> de margem nos itens (diferença até o Valor Ideal) para usar como reserva — útil para imprevistos na produção.</div>
+      <label style="display:block;font-size:10px;color:#8a7a3a;text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px">Quanto da folga usar como reserva</label>
+      <div style="display:flex;align-items:center;gap:10px">
+        <input type="range" min="0" max="100" value="${f.reservaPct}" oninput="updFiscal('reservaPct',this.value)" style="flex:1">
+        <input type="number" min="0" max="100" value="${f.reservaPct}" oninput="updFiscal('reservaPct',this.value)" style="width:60px;background:var(--input-bg);border:1px solid #3a3320;border-radius:4px;color:#d4b84a;font:inherit;font-size:13px;padding:5px;text-align:center">
+        <span style="font-size:12px;color:#8a7a3a">%</span>
+      </div>
+      ${f.reservaPct>0?`
+      <div style="margin-top:12px;padding-top:12px;border-top:1px solid #3a3320">
+        <div class="res-row" style="border:none;padding:4px 0"><span class="rlabel" style="color:#8a7a3a">Subtotal com reserva</span><span class="rval" style="color:#d4b84a">${fmt(k.subComReserva)}</span></div>
+        <div class="res-row" style="border:none;padding:4px 0"><span class="rlabel" style="color:#8a7a3a">Total com reserva (vai pra folha de rosto)</span><span class="rval" style="color:#d4b84a;font-weight:700">${fmt(k.totalComReserva)}</span></div>
+        <div class="res-row" style="border:none;padding:4px 0"><span class="rlabel" style="color:#8a7a3a">Lucro com reserva</span><span class="rval v-green">${fmt(k.lucroComReserva)}</span></div>
+      </div>
+      <div style="margin-top:10px;font-size:10px;color:#665c3a;line-height:1.5">ⓘ Esse aumento sobe os itens em direção ao Valor Ideal de cada um (nunca passa do ideal) — assim você consegue justificar pro cliente como "valor cheio de itens que estavam com desconto", se ele perguntar.</div>
+      </div>`:''}
+    </div>` : ''}`;
 }
 
 function esc(s){return String(s||'').replace(/"/g,'&quot;').replace(/</g,'&lt;');}
@@ -670,6 +722,7 @@ function esc(s){return String(s||'').replace(/"/g,'&quot;').replace(/</g,'&lt;')
 /* ============ RENDER: FOLHA DE ROSTO ============ */
 function renderRosto(){
   const k=calc();
+  const temReserva = S.fiscal.reservaPct>0 && k.reservaAlvo>0.5;
   const rows = FR_ORDER.map(id=>{
     const v=catTotal(id);
     return `<tr><td>${CAT_LABEL_FR[id]}</td><td class="r">${v>0?fmt(v):'—'}</td></tr>`;
@@ -689,14 +742,15 @@ function renderRosto(){
       <div class="fr-irow"><span class="fr-ilabel">Cliente</span><span class="fr-ival">${esc(S.cliente)}</span></div>
     </div>
     <div class="fr-body">
+      ${temReserva?`<div style="background:#f5e9c8;border-left:3px solid #c9a227;padding:8px 14px;margin-bottom:14px;font-size:11px;color:#5c4a10">ⓘ Itens ajustados para valor cheio (reserva de segurança aplicada)</div>`:''}
       <table class="fr-table">
         <tr><th>Item</th><th class="r">Valor</th></tr>
         ${rows}
-        <tr class="sub"><td>Subtotal</td><td class="r">${fmt(k.sub)}</td></tr>
-        <tr class="fiscal"><td>Taxa da Produtora</td><td class="r">${fmt(ceil5(k.taxaVal))}</td></tr>
-        <tr class="fiscal"><td>Impostos / NF</td><td class="r">${fmt(ceil5(k.impVal))}</td></tr>
+        <tr class="sub"><td>Subtotal</td><td class="r">${fmt(temReserva?k.subComReserva:k.sub)}</td></tr>
+        <tr class="fiscal"><td>Taxa da Produtora</td><td class="r">${fmt(ceil5(temReserva?k.subComReserva*k.t:k.taxaVal))}</td></tr>
+        <tr class="fiscal"><td>Impostos / NF</td><td class="r">${fmt(ceil5(temReserva?k.subComReserva*k.i:k.impVal))}</td></tr>
         ${S.fiscal.desconto>0?`<tr class="fiscal"><td>Desconto</td><td class="r" style="color:#b00">−${fmt(k.descVal)}</td></tr>`:''}
-        <tr class="total"><td>TOTAL</td><td class="r">${fmt(k.sub + ceil5(k.taxaVal) + ceil5(k.impVal) - (S.fiscal.desconto>0?k.descVal:0))}</td></tr>
+        <tr class="total"><td>TOTAL</td><td class="r">${fmt((temReserva?k.subComReserva:k.sub) + ceil5(temReserva?k.subComReserva*k.t:k.taxaVal) + ceil5(temReserva?k.subComReserva*k.i:k.impVal) - (S.fiscal.desconto>0?k.descVal:0))}</td></tr>
       </table>
     </div>
     <div class="fr-obs">

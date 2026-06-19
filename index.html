@@ -517,10 +517,17 @@ function calc(){
   const custoMaisImposto = sub + impVal;
   const lucroNaVerba = verba - custoMaisImposto;
 
+  // Cenário IDEAL (se cobrasse o valor cheio de cada item)
+  const taxaIdealVal = subIdeal*t;       // lucro no cenário ideal
+  const impIdealVal = subIdeal*i;
+  const lucroIdeal = taxaIdealVal - descVal;
+  const margemIdeal = totalIdeal>0 ? lucroIdeal/totalIdeal : 0;
+
   return {sub,subIdeal,totalCalc,totalIdeal,taxaVal,impVal,descVal,
     lucro,margem,verba,gapVerba,reservaPct,folgaDisponivel,reservaAlvo,
     subComReserva,totalComReserva,lucroComReserva,
     descontoVsIdeal,descontoVsIdealP,
+    taxaIdealVal,impIdealVal,lucroIdeal,margemIdeal,
     custoMax,corteR,corteP,custoMaisImposto,lucroNaVerba,t,i,d};
 }
 
@@ -836,7 +843,11 @@ function renderSaude(){
   const baseFat = usaVerba ? k.verba : k.totalCalc;
   const margemReal = baseFat>0 ? lucroReal/baseFat : 0;
   const lucroCls = h.key==='green'?'v-green':h.key==='yellow'?'v-yellow':'v-red';
-  const kpis=[
+
+  // diferença entre o ideal e o real (quanto fica na mesa)
+  const deixadoNaMesa = k.lucroIdeal - lucroReal;
+
+  const kpisReal=[
     ["Subtotal de produção",fmt(k.sub),''],
     ["Taxa da Produtora (lucro bruto)",fmt(k.taxaVal),'v-green'],
     ["Impostos (repassado ao cliente)",fmt(k.impVal),''],
@@ -846,20 +857,38 @@ function renderSaude(){
     ["Lucro real da Stage",fmt(lucroReal),lucroCls],
     ["Margem real",pct(margemReal),lucroCls],
   ];
+  const kpisIdeal=[
+    ["Subtotal ideal",fmt(k.subIdeal),''],
+    ["Taxa da Produtora (lucro ideal)",fmt(k.taxaIdealVal),'v-green'],
+    ["Total ideal a cobrar",fmt(k.totalIdeal),''],
+    ["Lucro ideal da Stage",fmt(k.lucroIdeal),'v-green'],
+    ["Margem ideal",pct(k.margemIdeal),'v-green'],
+  ];
+
   document.getElementById('v-saude').innerHTML=`
   <div class="status ${h.key}">
     <span class="s-emoji">${h.emoji}</span>
     <div class="s-text">${h.text}</div>
     <div class="s-sub">${h.sub}</div>
   </div>
+
   <div class="panel">
-    <div class="panel-title">Indicadores de lucro</div>
+    <div class="panel-title">💚 Cenário real — o que de fato entra (base: verba negociada)</div>
     <div class="kpi-grid">
-      ${kpis.map(([l,v,c])=>`<div class="kpi"><div class="k-label">${l}</div><div class="k-val ${c}">${v}</div></div>`).join('')}
+      ${kpisReal.map(([l,v,c])=>`<div class="kpi"><div class="k-label">${l}</div><div class="k-val ${c}">${v}</div></div>`).join('')}
     </div>
   </div>
+
+  <div class="panel" style="border-color:#3a3320">
+    <div class="panel-title" style="color:#d4b84a">⭐ Cenário ideal — se cobrasse o valor cheio de cada item</div>
+    <div class="kpi-grid">
+      ${kpisIdeal.map(([l,v,c])=>`<div class="kpi" style="border-color:#2a2410"><div class="k-label">${l}</div><div class="k-val ${c}">${v}</div></div>`).join('')}
+    </div>
+    ${deixadoNaMesa>0.5?`<div class="callout" style="border-color:#3a3320;background:#15120a;color:#cbb878;margin-top:14px;margin-bottom:0">No cenário ideal, o lucro seria <b>${fmt(k.lucroIdeal)}</b>. Hoje você fica com <b>${fmt(lucroReal)}</b> — ou seja, <b>${fmt(deixadoNaMesa)}</b> de diferença entre o que você gostaria de cobrar e o que está fechando. ${k.folgaDisponivel>0.5?'Use a reserva de segurança na aba Dados para recuperar parte disso.':''}</div>`:''}
+  </div>
+
   <div class="callout">
-    <b>Seu lucro é a Taxa da Produtora.</b> Você cobra do cliente o que a produção custa (${fmt(k.sub)}) e repassa o imposto (${fmt(k.impVal)}) por cima. O que sobra de fato para a Stage é a taxa de ${S.fiscal.taxa}% ${usaVerba?`— mas como a verba (${fmt(k.verba)}) é menor que o ideal, o lucro real cai para ${fmt(lucroReal)}.`:`= <b>${fmt(k.taxaVal)}</b>.`}
+    <b>Seu lucro é a Taxa da Produtora.</b> Você cobra do cliente o que a produção custa (${fmt(k.sub)}) e repassa o imposto (${fmt(k.impVal)}) por cima. O que sobra de fato para a Stage é a taxa de ${S.fiscal.taxa}% ${usaVerba?`— mas como a verba (${fmt(k.verba)}) é menor que o ideal, o lucro real fica em ${fmt(lucroReal)}.`:`= <b>${fmt(k.taxaVal)}</b>.`}
   </div>`;
 }
 

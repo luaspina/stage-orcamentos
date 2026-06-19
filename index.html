@@ -232,18 +232,18 @@ const DEFAULTS = {
   cliente:"Ford Brasil", data:"", responsavel:"Stage Films",
   fiscal:{taxa:30, imposto:15, desconto:0, verba:65000},
   items:{
-    pre:[{d:"Dir. Produção",q:1,v:3000,c:3000,i:"Lua"},{d:"Pré-Operacional",q:1,v:1000,c:1000,i:"Nayla"}],
-    locacao:[{d:"Locação",q:1,v:3500,c:3500,i:"Fazenda Embauva"}],
-    producao:[{d:"Detailler",q:2,v:800,c:800,i:"Paulo Cera"}],
+    pre:[{d:"Dir. Produção",q:1,vi:3000,v:3000,i:"Lua"},{d:"Pré-Operacional",q:1,vi:1000,v:1000,i:"Nayla"}],
+    locacao:[{d:"Locação",q:1,vi:3500,v:3500,i:"Fazenda Embauva"}],
+    producao:[{d:"Detailler",q:2,vi:800,v:800,i:"Paulo Cera"}],
     tecnica:[
-      {d:"Diretor (2 diárias)",q:1,v:10000,c:5000,i:"Spina"},
-      {d:"Dir. Fotografia",q:2,v:3000,c:3000,i:""},
-      {d:"Assist. Fotografia",q:2,v:1500,c:1500,i:""},
-      {d:"Drone FPV GoPro+Mavic",q:2,v:2000,c:2000,i:""}],
-    equip:[{d:"Aluguel Fotografia — Matheus",q:2,v:2000,c:2000,i:""}],
-    logistica:[{d:"Catering por conta",q:8,v:120,c:120,i:""},{d:"Carretinha",q:2,v:500,c:500,i:""},{d:"Combustível",q:1,v:200,c:200,i:""}],
+      {d:"Diretor (2 diárias)",q:1,vi:10000,v:10000,i:"Spina"},
+      {d:"Dir. Fotografia",q:2,vi:3000,v:3000,i:""},
+      {d:"Assist. Fotografia",q:2,vi:1500,v:1500,i:""},
+      {d:"Drone FPV GoPro+Mavic",q:2,vi:2000,v:2000,i:""}],
+    equip:[{d:"Aluguel Fotografia — Matheus",q:2,vi:2000,v:2000,i:""}],
+    logistica:[{d:"Catering por conta",q:8,vi:120,v:120,i:""},{d:"Carretinha",q:2,vi:500,v:500,i:""},{d:"Combustível",q:1,vi:200,v:200,i:""}],
     elenco:[],
-    pos:[{d:"Chefe de Edição",q:1,v:5000,c:2500,i:"Spina"},{d:"Fotos",q:30,v:500,c:66.67,i:"Spina"}],
+    pos:[{d:"Chefe de Edição",q:1,vi:5000,v:5000,i:"Spina"},{d:"Fotos",q:30,vi:500,v:500,i:"Spina"}],
     reembolsos:[]
   },
   ajustes:[
@@ -251,15 +251,33 @@ const DEFAULTS = {
     {cat:"Equipes Técnicas",item:"Diretor — diárias",qo:2,vo:10000,qa:1,va:5000,obs:"Direção em 1 diária ao invés de 2"},
     {cat:"Logística",item:"Equipe em set",qo:8,vo:960,qa:5,va:600,obs:"Equipe reduzida de 8 para 5 pessoas"},
   ],
-  openCats:{tecnica:true}
+  openCats:{tecnica:true},
+  showIdeal:false
 };
 
 const KEY="stage_orcamento_html_v1";
 const HKEY="stage_orcamento_historico_v1";
 let S = load();
 function load(){
-  try{const raw=localStorage.getItem(KEY); if(raw) return JSON.parse(raw);}catch(e){}
+  try{
+    const raw=localStorage.getItem(KEY);
+    if(raw){return migrate(JSON.parse(raw));}
+  }catch(e){}
   return JSON.parse(JSON.stringify(DEFAULTS));
+}
+function migrate(st){
+  // garante campos novos em dados antigos
+  if(st.showIdeal===undefined) st.showIdeal=false;
+  if(st.items){
+    Object.keys(st.items).forEach(cat=>{
+      (st.items[cat]||[]).forEach(it=>{
+        if(it.vi===undefined) it.vi = (it.v!==undefined?it.v:0); // ideal = cobrado por padrão
+        // remove campos antigos de custo, se existirem
+        delete it.c; delete it.ce; delete it.cr;
+      });
+    });
+  }
+  return st;
 }
 let saveTimer=null;
 function save(){
@@ -290,10 +308,9 @@ function snapshotCurrent(){
     cliente: S.cliente || "",
     data: new Date().toLocaleDateString('pt-BR'),
     ts: Date.now(),
-    total: k.totalIdeal,
+    total: k.totalCalc,
     verba: S.fiscal.verba,
-    lucro: k.lucro,
-    margem: k.margem,
+    lucro: (S.fiscal.verba>0 && S.fiscal.verba<k.totalCalc) ? k.lucroNaVerba : k.lucro,
     status: h.key,
     estado: copy
   };
@@ -344,39 +361,64 @@ function novoOrcamento(){
 
 /* ============ HELPERS ============ */
 const fmt=v=>new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(v||0);
+const ceil5=v=>Math.ceil((v||0)/5)*5;  // arredonda pra cima até o próximo múltiplo de 5
 const pct=v=>(v*100).toFixed(1).replace('.',',')+'%';
 const num=v=>{const n=parseFloat(String(v).replace(/\./g,'').replace(',','.'));return isNaN(n)?0:n;};
 
-function catTotal(id){return (S.items[id]||[]).reduce((s,it)=>s+(it.q||0)*(it.v||0),0);}
-function catCusto(id){return (S.items[id]||[]).reduce((s,it)=>s+(it.q||0)*(it.c||0),0);}
+function catTotal(id){return (S.items[id]||[]).reduce((s,it)=>s+(it.q||0)*(it.v||0),0);}   // valor COBRADO (soma)
+function catIdeal(id){return (S.items[id]||[]).reduce((s,it)=>s+(it.q||0)*(it.vi||0),0);}  // valor IDEAL (comparação)
 function subtotal(){return CATS.reduce((s,c)=>s+catTotal(c.id),0);}
-function custoReal(){return CATS.reduce((s,c)=>s+catCusto(c.id),0);}
+function subtotalIdeal(){return CATS.reduce((s,c)=>s+catIdeal(c.id),0);}
 
 function calc(){
-  const sub=subtotal();
+  const sub=subtotal();          // subtotal COBRADO = custo de produção (o que soma)
+  const subIdeal=subtotalIdeal(); // subtotal IDEAL (comparação de preço)
   const t=S.fiscal.taxa/100, i=S.fiscal.imposto/100, d=S.fiscal.desconto/100;
-  const totalIdeal = sub*(1+t+i-d);
+
+  // Preço com taxa + imposto (ambos somados por cima do subtotal)
+  const totalCalc  = sub*(1+t+i-d);       // total que vai ao cliente
+  const totalIdeal = subIdeal*(1+t+i-d);  // total se cobrasse o ideal
   const taxaVal = sub*t, impVal = sub*i, descVal = sub*d;
-  const custo = custoReal();
-  const verba = S.fiscal.verba>0 ? S.fiscal.verba : totalIdeal;
-  // imposto real é sobre o faturamento (verba), não sobre o custo
-  const impReal = verba*i;
-  const lucro = verba - custo - impReal;
-  const margem = verba>0 ? lucro/verba : 0;
-  // ponto de equilíbrio
-  const breakEven = custo/(1-i);
-  // custo máximo de produção que cabe na verba
+
+  // LUCRO REAL = Taxa da Produtora cheia (o imposto é repassado ao cliente, não toca a Stage)
+  // Se houver desconto concedido (%), ele sai da taxa.
+  const lucro = taxaVal - descVal;
+  const margem = totalCalc>0 ? lucro/totalCalc : 0;
+
+  // Verba negociada (cliente). Se 0, usa o total calculado.
+  const verba = S.fiscal.verba>0 ? S.fiscal.verba : totalCalc;
+
+  // Disciplina de preço (quando usa Valor Ideal): ideal × cobrado
+  const descontoVsIdeal = totalIdeal - totalCalc;
+  const descontoVsIdealP = totalIdeal>0 ? descontoVsIdeal/totalIdeal : 0;
+
+  // Para Ajuste de Escopo: custo máx de produção que cabe na verba
   const custoMax = S.fiscal.verba>0 ? verba/(1+t+i) : sub;
   const corteR = Math.max(0, sub - custoMax);
   const corteP = sub>0 ? corteR/sub : 0;
-  return {sub,totalIdeal,taxaVal,impVal,descVal,custo,verba,impReal,lucro,margem,breakEven,custoMax,corteR,corteP,t,i,d};
+
+  // Lucro se a verba negociada for menor que o total calculado:
+  // a verba cobre custo+imposto primeiro; o que sobra é o lucro real
+  const custoMaisImposto = sub + impVal;           // o que a Stage precisa repassar (produção + governo)
+  const lucroNaVerba = verba - custoMaisImposto;    // o que realmente sobra na verba negociada
+
+  return {sub,subIdeal,totalCalc,totalIdeal,taxaVal,impVal,descVal,
+    lucro,margem,verba,descontoVsIdeal,descontoVsIdealP,
+    custoMax,corteR,corteP,custoMaisImposto,lucroNaVerba,t,i,d};
 }
 
 function healthState(){
   const k=calc();
-  if(k.lucro<=0) return {key:"red",emoji:"🔴",text:"PREJUÍZO — AÇÃO IMEDIATA NECESSÁRIA",sub:"O projeto perde dinheiro nessa verba. Corte de custo é obrigatório."};
-  if(k.margem < k.t) return {key:"yellow",emoji:"🟡",text:"NO LIMITE — MARGEM ABAIXO DA META",sub:"Dá lucro, mas a margem está abaixo da meta. Sustentável, sem gordura para imprevisto."};
-  return {key:"green",emoji:"🟢",text:"SAUDÁVEL — MARGEM DENTRO DA META",sub:"Margem real atinge ou supera a meta de taxa da produtora."};
+  const usaVerba = S.fiscal.verba>0 && S.fiscal.verba < k.totalCalc;
+  const lucroReal = usaVerba ? k.lucroNaVerba : k.lucro;
+  // referência = lucro cheio (taxa da produtora sobre o subtotal)
+  const lucroAlvo = k.taxaVal;
+
+  if(lucroReal <= 0)
+    return {key:"red",emoji:"🔴",text:"PREJUÍZO — A VERBA NÃO COBRE CUSTO + IMPOSTO",sub:"O que o cliente paga não cobre a produção e o imposto. Reveja escopo ou renegocie antes de fechar."};
+  if(lucroReal < lucroAlvo*0.85)  // lucro real abaixo de 85% do lucro cheio
+    return {key:"yellow",emoji:"🟡",text:"LUCRO APERTADO — ABAIXO DA META",sub:"Sobra dinheiro, mas menos do que a Taxa da Produtora cheia. Sustentável, sem gordura para imprevisto."};
+  return {key:"green",emoji:"🟢",text:"SAUDÁVEL — LUCRO PRESERVADO",sub:"A Taxa da Produtora está sendo preservada. Projeto lucrativo."};
 }
 
 /* ============ RENDER: TABS ============ */
@@ -419,9 +461,9 @@ function renderInicio(){
   <div class="panel">
     <div class="panel-title">Como usar — passo a passo</div>
     <div class="steps">
-      <div class="step"><div class="num">1</div><div class="stext">Preencha os itens na aba <b>Dados</b>: quantidade, valor cobrado e — importante — o <b>custo real</b> de cada item (inclusive horas do Spina e da Lua). Configure taxa, impostos e a verba do cliente.</div></div>
-      <div class="step"><div class="num">2</div><div class="stext">Abra <b>Saúde do Projeto</b>. Mostra na hora se está 🟢 verde, 🟡 amarelo ou 🔴 vermelho e quanto de lucro real sobra.</div></div>
-      <div class="step"><div class="num">3</div><div class="stext">Se precisar caber na verba, veja em <b>Análise de Custos</b> quais categorias têm mais margem (gordura) para cortar sem dor.</div></div>
+      <div class="step"><div class="num">1</div><div class="stext">Preencha os itens na aba <b>Dados</b>: quantidade, <b>valor ideal</b> (quanto gostaria de cobrar) e <b>valor cobrado</b> (o que de fato vai ao cliente). Configure taxa, impostos e a verba do cliente.</div></div>
+      <div class="step"><div class="num">2</div><div class="stext">Abra <b>Saúde do Projeto</b>. Mostra na hora se o projeto dá lucro saudável (🟢), apertado (🟡) ou prejuízo (🔴). Seu lucro é a Taxa da Produtora.</div></div>
+      <div class="step"><div class="num">3</div><div class="stext">Em <b>Análise de Custos</b>, veja para onde vai cada parte do que o cliente paga: produção, imposto e o que fica com a Stage.</div></div>
       <div class="step"><div class="num">4</div><div class="stext">Documente os cortes em <b>Ajuste de Escopo</b> (original × ajustado). Gera o texto pronto de justificativa para o cliente.</div></div>
       <div class="step"><div class="num">5</div><div class="stext">Reflita os cortes de volta na aba <b>Dados</b> (ex: Fotos de 30 → 15). A Saúde atualiza sozinha. Pare em 🟢 ou no mínimo 🟡.</div></div>
       <div class="step"><div class="num">6</div><div class="stext">Imprima a <b>Folha de Rosto</b> para o cliente — já com o escopo final. As demais abas são internas.</div></div>
@@ -430,24 +472,24 @@ function renderInicio(){
 
   <div class="panel">
     <div class="panel-title">Semáforo de saúde</div>
-    <div class="legend-item green"><div class="lbadge">🟢 Saudável</div><div class="ldesc">Margem atinge ou supera a meta (taxa da produtora). Pode fechar tranquilo.</div></div>
-    <div class="legend-item yellow"><div class="lbadge">🟡 No limite</div><div class="ldesc">Dá lucro, mas a margem está abaixo da meta. Sustentável — mas sem gordura para imprevisto. Decisão consciente.</div></div>
-    <div class="legend-item red"><div class="lbadge">🔴 Prejuízo</div><div class="ldesc">Lucro real igual ou abaixo de zero. Não feche sem cortar custo. Aqui a Stage perde dinheiro de verdade.</div></div>
+    <div class="legend-item green"><div class="lbadge">🟢 Saudável</div><div class="ldesc">A Taxa da Produtora está preservada. O projeto dá lucro dentro da meta.</div></div>
+    <div class="legend-item yellow"><div class="lbadge">🟡 Apertado</div><div class="ldesc">Sobra dinheiro, mas menos que a sua taxa-alvo. Sustentável, sem gordura para imprevisto.</div></div>
+    <div class="legend-item red"><div class="lbadge">🔴 Prejuízo</div><div class="ldesc">A verba não cobre custo + imposto. Não feche sem renegociar ou cortar escopo.</div></div>
   </div>
 
   <div class="panel">
     <div class="panel-title">Dois princípios que protegem a margem</div>
     <div class="princ">
-      <div class="pcard blue"><b>Corte escopo, não margem</b>Para caber na verba, reduza entregas, equipe ou diárias — nunca a sua taxa. Margem cortada não volta.</div>
-      <div class="pcard amber"><b>Custo real completo</b>Inclua sempre as horas dos sócios no custo. Se o dono não se paga, a empresa parece lucrativa enquanto vocês trabalham de graça.</div>
+      <div class="pcard blue"><b>Seu lucro é a Taxa</b>Você cobra o custo de produção e repassa o imposto. O que fica com a Stage é a Taxa da Produtora — proteja ela ao negociar.</div>
+      <div class="pcard amber"><b>Segure o preço ideal</b>Defina o valor ideal por item e use-o como âncora. Todo desconto aparece na Análise — assim você decide conscientemente quanto abrir mão, e não no susto.</div>
     </div>
   </div>
 
   <div class="panel">
     <div class="panel-title">Como o preço é calculado</div>
     <div class="formula-box">
-      <div class="f">Total = Custo de Produção × (1 + Taxa% + Impostos%)</div>
-      <div class="ex">Ex: R$ 58.260 × (1 + 30% + 15%) = R$ 84.477</div>
+      <div class="f">Lucro da Stage = Taxa da Produtora</div>
+      <div class="ex">Você cobra o que custa + repassa o imposto. O que sobra é a taxa. Ex: 30% de R$ 58.260 = R$ 17.478 de lucro.</div>
     </div>
   </div>`;
 }
@@ -457,15 +499,16 @@ function renderDados(){
   const cats = CATS.map(cat=>{
     const open = S.openCats[cat.id];
     const tot = catTotal(cat.id);
+    const showIdeal = S.showIdeal;
     const rows = (S.items[cat.id]||[]).map((it,idx)=>`
       <tr class="irow">
         <td><input class="txt" value="${esc(it.d)}" oninput="upd('${cat.id}',${idx},'d',this.value)"></td>
-        <td style="width:58px"><input class="num" type="number" value="${it.q}" oninput="upd('${cat.id}',${idx},'q',this.value)"></td>
-        <td style="width:104px"><input class="money" type="number" value="${it.v}" oninput="upd('${cat.id}',${idx},'v',this.value)"></td>
-        <td style="width:104px"><input class="money" type="number" value="${it.c}" oninput="upd('${cat.id}',${idx},'c',this.value)" title="Custo real unitário (por unidade)"></td>
+        <td style="width:50px"><input class="num" type="number" value="${it.q}" oninput="upd('${cat.id}',${idx},'q',this.value)"></td>
+        ${showIdeal?`<td style="width:100px"><input class="money" type="number" value="${it.vi}" oninput="upd('${cat.id}',${idx},'vi',this.value)" title="Valor ideal unitário (quanto você gostaria de cobrar)" style="border-color:#3a3320;color:#d4b84a"></td>`:''}
+        <td style="width:110px"><input class="money" type="number" value="${it.v}" oninput="upd('${cat.id}',${idx},'v',this.value)" title="Valor cobrado ao cliente (unitário) — este é o que soma"></td>
         <td class="total" id="rowtot-${cat.id}-${idx}">${fmt(it.q*it.v)}</td>
-        <td style="width:120px"><input class="txt" value="${esc(it.i)}" oninput="upd('${cat.id}',${idx},'i',this.value)" placeholder="obs"></td>
-        <td style="width:28px"><button class="del" onclick="delItem('${cat.id}',${idx})">✕</button></td>
+        <td style="width:110px"><input class="txt" value="${esc(it.i)}" oninput="upd('${cat.id}',${idx},'i',this.value)" placeholder="obs"></td>
+        <td style="width:24px"><button class="del" onclick="delItem('${cat.id}',${idx})">✕</button></td>
       </tr>`).join('');
     return `
     <div class="cat ${open?'open':''}">
@@ -475,7 +518,7 @@ function renderDados(){
       </div>
       <div class="cat-body">
         <table>
-          <tr class="ihead"><th>Descrição</th><th>Qtd</th><th>Valor cobrado</th><th>Custo real unit.</th><th style="text-align:right">Total</th><th>Obs</th><th></th></tr>
+          <tr class="ihead"><th>Descrição</th><th>Qtd</th>${S.showIdeal?'<th style="color:#8a7a3a">Valor ideal</th>':''}<th>Valor cobrado</th><th style="text-align:right">Total</th><th>Obs</th><th></th></tr>
           ${rows||''}
         </table>
         <button class="add-item" onclick="addItem('${cat.id}')">+ Adicionar item</button>
@@ -486,17 +529,20 @@ function renderDados(){
   const f=S.fiscal, k=calc();
   document.getElementById('v-dados').innerHTML=`
   <div class="panel">
-    <div class="panel-title">Itens do orçamento — valores unitários. Preencha o custo real unitário (não o cobrado) na coluna Custo real unit.</div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;gap:12px;flex-wrap:wrap">
+      <div class="panel-title" style="margin:0">Itens do orçamento — você cobra o que custa. ${S.showIdeal?'A coluna <b style="color:#d4b84a">Valor ideal</b> é só sua referência de preço.':''}</div>
+      <button class="btn btn-ghost" style="padding:6px 12px;font-size:10px" onclick="toggleIdeal()">${S.showIdeal?'✓ Valor ideal visível':'+ Mostrar Valor ideal'}</button>
+    </div>
     ${cats}
   </div>
 
   <div class="panel">
     <div class="panel-title">Configuração fiscal</div>
     <div class="cfg-grid">
+      <div class="cfg-field"><label>Verba Negociada <span class="hint">(R$ — o que o cliente paga · 0 = usar total calculado)</span></label><input type="number" value="${f.verba}" oninput="updFiscal('verba',this.value)"></div>
       <div class="cfg-field"><label>Taxa da Produtora <span class="hint">(% sobre produção)</span></label><input type="number" value="${f.taxa}" oninput="updFiscal('taxa',this.value)"></div>
       <div class="cfg-field"><label>Impostos / NF <span class="hint">(% sobre produção)</span></label><input type="number" value="${f.imposto}" oninput="updFiscal('imposto',this.value)"></div>
       <div class="cfg-field"><label>Desconto <span class="hint">(% — 0 se não houver)</span></label><input type="number" value="${f.desconto}" oninput="updFiscal('desconto',this.value)"></div>
-      <div class="cfg-field"><label>Verba Negociada <span class="hint">(R$ — 0 = usar total ideal)</span></label><input type="number" value="${f.verba}" oninput="updFiscal('verba',this.value)"></div>
     </div>
   </div>
 
@@ -505,14 +551,17 @@ function renderDados(){
 
 function resultPanelHTML(){
   const k=calc(), f=S.fiscal;
+  const usaVerba = f.verba>0 && f.verba < k.totalCalc;
+  const lucroReal = usaVerba ? k.lucroNaVerba : k.lucro;
   return `<div class="panel-title">Resultado</div>
-    <div class="res-row"><span class="rlabel">Subtotal de produção</span><span class="rval">${fmt(k.sub)}</span></div>
-    <div class="res-row"><span class="rlabel sub">↳ Taxa da Produtora (${f.taxa}%)</span><span class="rval">${fmt(k.taxaVal)}</span></div>
-    <div class="res-row"><span class="rlabel sub">↳ Impostos / NF (${f.imposto}%)</span><span class="rval">${fmt(k.impVal)}</span></div>
+    ${S.showIdeal&&k.subIdeal!==k.sub?`<div class="res-row"><span class="rlabel" style="color:#8a7a3a">Subtotal ideal (referência)</span><span class="rval" style="color:#d4b84a">${fmt(k.subIdeal)}</span></div>`:''}
+    <div class="res-row"><span class="rlabel">Subtotal de produção (o que custa)</span><span class="rval">${fmt(k.sub)}</span></div>
+    <div class="res-row"><span class="rlabel sub">↳ Taxa da Produtora (${f.taxa}%) — seu lucro</span><span class="rval" style="color:var(--green)">${fmt(k.taxaVal)}</span></div>
+    <div class="res-row"><span class="rlabel sub">↳ Impostos / NF (${f.imposto}%) — repassado</span><span class="rval">${fmt(k.impVal)}</span></div>
     ${f.desconto>0?`<div class="res-row"><span class="rlabel sub">↳ Desconto (${f.desconto}%)</span><span class="rval v-red">−${fmt(k.descVal)}</span></div>`:''}
-    <div class="res-big"><div class="rb-label">Total a cobrar ao cliente</div><div class="rb-val">${fmt(k.totalIdeal)}</div></div>
-    <div class="res-row" style="margin-top:14px"><span class="rlabel" style="color:var(--yellow)">Custo operacional real (Stage)</span><span class="rval v-yellow">${fmt(k.custo)}</span></div>
-    <div class="res-big lucro" style="border-color:${k.lucro>0?'#2a5c34':'#5c2620'}"><div class="rb-label">Lucro real ${S.fiscal.verba>0?'(sobre a verba de '+fmt(k.verba)+')':''}</div><div class="rb-val ${k.lucro>0?'v-green':'v-red'}">${fmt(k.lucro)}</div></div>`;
+    <div class="res-big"><div class="rb-label">Total a cobrar ao cliente</div><div class="rb-val">${fmt(k.totalCalc)}</div></div>
+    ${f.verba>0?`<div class="res-row" style="margin-top:10px"><span class="rlabel">Verba negociada (cliente)</span><span class="rval">${fmt(k.verba)}</span></div>`:''}
+    <div class="res-big lucro" style="border-color:${lucroReal>0?'#2a5c34':'#5c2620'}"><div class="rb-label">Lucro real da Stage ${usaVerba?'(na verba negociada)':'(Taxa da Produtora)'}</div><div class="rb-val ${lucroReal>0?'v-green':'v-red'}">${fmt(lucroReal)}</div></div>`;
 }
 
 function esc(s){return String(s||'').replace(/"/g,'&quot;').replace(/</g,'&lt;');}
@@ -543,10 +592,10 @@ function renderRosto(){
         <tr><th>Item</th><th class="r">Valor</th></tr>
         ${rows}
         <tr class="sub"><td>Subtotal</td><td class="r">${fmt(k.sub)}</td></tr>
-        <tr class="fiscal"><td>Taxa da Produtora <b style="color:#1f4e79">(${S.fiscal.taxa}%)</b></td><td class="r"></td></tr>
-        <tr class="fiscal"><td>Impostos / NF <b style="color:#1f4e79">(${S.fiscal.imposto}%)</b></td><td class="r"></td></tr>
-        ${S.fiscal.desconto>0?`<tr class="fiscal"><td>Desconto <b style="color:#1f4e79">(${S.fiscal.desconto}%)</b></td><td class="r"></td></tr>`:''}
-        <tr class="total"><td>TOTAL</td><td class="r">${fmt(k.totalIdeal)}</td></tr>
+        <tr class="fiscal"><td>Taxa da Produtora</td><td class="r">${fmt(ceil5(k.taxaVal))}</td></tr>
+        <tr class="fiscal"><td>Impostos / NF</td><td class="r">${fmt(ceil5(k.impVal))}</td></tr>
+        ${S.fiscal.desconto>0?`<tr class="fiscal"><td>Desconto</td><td class="r" style="color:#b00">−${fmt(k.descVal)}</td></tr>`:''}
+        <tr class="total"><td>TOTAL</td><td class="r">${fmt(k.sub + ceil5(k.taxaVal) + ceil5(k.impVal) - (S.fiscal.desconto>0?k.descVal:0))}</td></tr>
       </table>
     </div>
     <div class="fr-obs">
@@ -564,9 +613,10 @@ function renderRosto(){
 
   <div class="panel fr-internal" style="margin-top:16px">
     <div class="panel-title">▸ Análise de verba — uso interno (não imprime)</div>
-    <div class="res-row"><span class="rlabel">Total ideal calculado</span><span class="rval">${fmt(k.totalIdeal)}</span></div>
+    <div class="res-row"><span class="rlabel" style="color:#8a7a3a">Total ideal (meta cheia)</span><span class="rval" style="color:#d4b84a">${fmt(k.totalIdeal)}</span></div>
+    <div class="res-row"><span class="rlabel">Total a cobrar</span><span class="rval">${fmt(k.totalCalc)}</span></div>
     <div class="res-row"><span class="rlabel">Verba do cliente</span><span class="rval">${fmt(S.fiscal.verba)}</span></div>
-    <div class="res-row"><span class="rlabel">Diferença (ideal − verba)</span><span class="rval v-yellow">${fmt(k.totalIdeal-S.fiscal.verba)}</span></div>
+    <div class="res-row"><span class="rlabel">Desconto vs ideal</span><span class="rval v-yellow">${fmt(Math.max(0,k.descontoVsIdeal))} (${pct(Math.max(0,k.descontoVsIdealP))})</span></div>
     <div class="res-row"><span class="rlabel">Custo máx. de produção que cabe na verba</span><span class="rval">${fmt(k.custoMax)}</span></div>
     <div class="res-row"><span class="rlabel">Corte necessário na produção</span><span class="rval ${k.corteR>0?'v-yellow':'v-green'}">${fmt(k.corteR)} (${pct(k.corteP)})</span></div>
   </div>`;
@@ -575,54 +625,71 @@ function renderRosto(){
 /* ============ RENDER: ANÁLISE DE CUSTOS ============ */
 function renderAnalise(){
   const k=calc();
-  const rows = CATS.map(c=>{
-    const cob=catTotal(c.id), cus=catCusto(c.id), dif=cob-cus;
-    const marg=cob>0?dif/cob:0, peso=k.sub>0?cob/k.sub:0;
-    if(cob===0 && cus===0) return '';
-    return `<tr>
-      <td>${c.icon} ${c.label}</td>
-      <td>${fmt(cob)}</td><td style="color:var(--yellow)">${fmt(cus)}</td>
-      <td class="v-green" style="font-weight:600">${fmt(dif)}</td>
-      <td class="v-green">${pct(marg)}</td>
-      <td style="color:var(--txt-dim)">${pct(peso)}</td>
-    </tr>`;
-  }).join('');
-  document.getElementById('v-analise').innerHTML=`
-  <div class="panel">
-    <div class="panel-title">Comparativo: valor cobrado × custo real — onde está a gordura para cortar</div>
-    <table class="an-table">
-      <tr><th>Categoria</th><th>Cobrado ao cliente</th><th>Custo real Stage</th><th>Margem (R$)</th><th>Margem %</th><th>Peso no total</th></tr>
-      ${rows}
-      <tr class="total-row"><td>TOTAL</td><td>${fmt(k.sub)}</td><td>${fmt(k.custo)}</td><td>${fmt(k.sub-k.custo)}</td><td>${pct(k.sub>0?(k.sub-k.custo)/k.sub:0)}</td><td>100%</td></tr>
-    </table>
-  </div>
 
+  // Bloco 1: comparação ideal × cobrado (só se o Valor Ideal estiver ativo e houver diferença)
+  let idealBlock = '';
+  if(S.showIdeal && Math.abs(k.subIdeal-k.sub)>0.01){
+    const rows = CATS.map(c=>{
+      const ideal=catIdeal(c.id), cob=catTotal(c.id), dif=ideal-cob;
+      const difP = ideal>0 ? dif/ideal : 0;
+      if(ideal===0 && cob===0) return '';
+      const cls = dif>0 ? 'v-yellow' : (dif<0 ? 'v-green' : '');
+      const sign = dif>0?'−':(dif<0?'+':'');
+      return `<tr><td>${c.icon} ${c.label}</td><td style="color:#d4b84a">${fmt(ideal)}</td><td>${fmt(cob)}</td><td class="${cls}" style="font-weight:600">${dif!==0?sign+fmt(Math.abs(dif)):fmt(0)}</td><td class="${cls}">${ideal>0&&dif!==0?(sign+pct(Math.abs(difP))):'—'}</td></tr>`;
+    }).join('');
+    const totDif=k.subIdeal-k.sub, totDifP=k.subIdeal>0?totDif/k.subIdeal:0;
+    idealBlock = `
+    <div class="panel">
+      <div class="panel-title">Valor ideal × Valor cobrado — quanto de desconto você deu</div>
+      <table class="an-table">
+        <tr><th>Categoria</th><th>Ideal</th><th>Cobrado</th><th>Desconto (R$)</th><th>%</th></tr>
+        ${rows}
+        <tr class="total-row"><td>TOTAL</td><td style="color:#d4b84a">${fmt(k.subIdeal)}</td><td>${fmt(k.sub)}</td><td class="v-yellow">−${fmt(totDif)}</td><td class="v-yellow">−${pct(totDifP)}</td></tr>
+      </table>
+    </div>`;
+  }
+
+  // Bloco 2: composição do lucro (sempre)
+  const usaVerba = S.fiscal.verba>0 && S.fiscal.verba < k.totalCalc;
+  const lucroReal = usaVerba ? k.lucroNaVerba : k.lucro;
+
+  document.getElementById('v-analise').innerHTML=`
+  ${idealBlock}
   <div class="panel">
-    <div class="panel-title">Composição do total cobrado ao cliente</div>
-    <div class="res-row"><span class="rlabel">Subtotal de produção</span><span class="rval">${fmt(k.sub)}</span></div>
-    <div class="res-row"><span class="rlabel">Taxa da Produtora (${S.fiscal.taxa}%)</span><span class="rval">${fmt(k.taxaVal)}</span></div>
-    <div class="res-row"><span class="rlabel">Impostos / NF (${S.fiscal.imposto}%)</span><span class="rval">${fmt(k.impVal)}</span></div>
-    ${S.fiscal.desconto>0?`<div class="res-row"><span class="rlabel">Desconto (${S.fiscal.desconto}%)</span><span class="rval v-red">−${fmt(k.descVal)}</span></div>`:''}
-    <div class="res-row"><span class="rlabel" style="color:var(--gold)">Total a cobrar (ideal)</span><span class="rval" style="color:var(--gold)">${fmt(k.totalIdeal)}</span></div>
-    <div class="res-row"><span class="rlabel">Verba negociada</span><span class="rval">${fmt(S.fiscal.verba)}</span></div>
+    <div class="panel-title">De onde vem o dinheiro — para onde vai cada parte do que o cliente paga</div>
+    <div class="res-row"><span class="rlabel">Custo de produção (vai p/ fornecedores e equipe)</span><span class="rval">${fmt(k.sub)}</span></div>
+    <div class="res-row"><span class="rlabel">Impostos / NF (vai p/ o governo)</span><span class="rval">${fmt(k.impVal)}</span></div>
+    <div class="res-row"><span class="rlabel" style="color:var(--green)">Taxa da Produtora (fica com a Stage)</span><span class="rval v-green">${fmt(k.taxaVal)}</span></div>
+    ${S.fiscal.desconto>0?`<div class="res-row"><span class="rlabel">Desconto concedido</span><span class="rval v-red">−${fmt(k.descVal)}</span></div>`:''}
+    <div class="res-row"><span class="rlabel" style="color:var(--gold)">Total a cobrar</span><span class="rval" style="color:var(--gold)">${fmt(k.totalCalc)}</span></div>
+  </div>
+  <div class="panel">
+    <div class="panel-title">Resultado para a Stage</div>
+    <div class="kpi-grid">
+      <div class="kpi"><div class="k-label">Lucro real</div><div class="k-val ${lucroReal>0?'v-green':'v-red'}">${fmt(lucroReal)}</div></div>
+      <div class="kpi"><div class="k-label">Taxa da Produtora</div><div class="k-val">${pct(k.t)}</div></div>
+      <div class="kpi"><div class="k-label">Verba negociada</div><div class="k-val">${fmt(k.verba)}</div></div>
+    </div>
   </div>`;
 }
 
 /* ============ RENDER: SAÚDE ============ */
 function renderSaude(){
   const k=calc(), h=healthState();
+  const usaVerba = S.fiscal.verba>0 && S.fiscal.verba < k.totalCalc;
+  const lucroReal = usaVerba ? k.lucroNaVerba : k.lucro;
+  const baseFat = usaVerba ? k.verba : k.totalCalc;
+  const margemReal = baseFat>0 ? lucroReal/baseFat : 0;
+  const lucroCls = h.key==='green'?'v-green':h.key==='yellow'?'v-yellow':'v-red';
   const kpis=[
-    ["Verba do cliente",fmt(k.verba),''],
     ["Subtotal de produção",fmt(k.sub),''],
-    ["Custo real Stage",fmt(k.custo),''],
-    ["Total ideal (sem corte)",fmt(k.totalIdeal),''],
-    ["Custo máx. na verba",fmt(k.custoMax),''],
-    ["Corte necessário",fmt(k.corteR),k.corteR>0?'v-yellow':'v-green'],
-    ["Corte %",pct(k.corteP),k.corteR>0?'v-yellow':'v-green'],
-    ["Ponto de equilíbrio",fmt(k.breakEven),''],
-    ["Lucro real projetado",fmt(k.lucro),h.key==='green'?'v-green':h.key==='yellow'?'v-yellow':'v-red'],
-    ["Margem real",pct(k.margem),h.key==='green'?'v-green':h.key==='yellow'?'v-yellow':'v-red'],
-    ["Margem-alvo (taxa)",pct(k.t),''],
+    ["Taxa da Produtora (lucro bruto)",fmt(k.taxaVal),'v-green'],
+    ["Impostos (repassado ao cliente)",fmt(k.impVal),''],
+    ["Total a cobrar",fmt(k.totalCalc),''],
+    ["Verba negociada",fmt(k.verba),''],
+    ["Custo + imposto a repassar",fmt(k.custoMaisImposto),''],
+    ["Lucro real da Stage",fmt(lucroReal),lucroCls],
+    ["Margem real",pct(margemReal),lucroCls],
   ];
   document.getElementById('v-saude').innerHTML=`
   <div class="status ${h.key}">
@@ -631,13 +698,13 @@ function renderSaude(){
     <div class="s-sub">${h.sub}</div>
   </div>
   <div class="panel">
-    <div class="panel-title">Indicadores financeiros</div>
+    <div class="panel-title">Indicadores de lucro</div>
     <div class="kpi-grid">
       ${kpis.map(([l,v,c])=>`<div class="kpi"><div class="k-label">${l}</div><div class="k-val ${c}">${v}</div></div>`).join('')}
     </div>
   </div>
   <div class="callout">
-    <b>Lembre:</b> o ponto de equilíbrio (lucro zero) é ${fmt(k.breakEven)}. Acima disso, a Stage ganha dinheiro — só ganha mais ou menos. O corte de ${fmt(k.corteR)} serve para <b>restaurar a margem de ${S.fiscal.taxa}%</b>, não para evitar prejuízo.
+    <b>Seu lucro é a Taxa da Produtora.</b> Você cobra do cliente o que a produção custa (${fmt(k.sub)}) e repassa o imposto (${fmt(k.impVal)}) por cima. O que sobra de fato para a Stage é a taxa de ${S.fiscal.taxa}% ${usaVerba?`— mas como a verba (${fmt(k.verba)}) é menor que o ideal, o lucro real cai para ${fmt(lucroReal)}.`:`= <b>${fmt(k.taxaVal)}</b>.`}
   </div>`;
 }
 
@@ -660,7 +727,7 @@ function renderAjuste(){
     </tr>`).join('');
 
   // client text
-  let ctext=`Para adequar o orçamento à verba aprovada de ${fmt(S.fiscal.verba)}, realizamos os seguintes ajustes de escopo em relação à proposta original (${fmt(k.totalIdeal)}):\n\n`;
+  let ctext=`Para adequar o orçamento à verba aprovada de ${fmt(S.fiscal.verba)}, realizamos os seguintes ajustes de escopo em relação à proposta original (${fmt(k.totalCalc)}):\n\n`;
   S.ajustes.forEach(a=>{if(a.item)ctext+=`• ${a.item}: de ${a.qo} para ${a.qa} — ${a.obs}\n`;});
   ctext+=`\nEsses ajustes resultam em uma redução de ${fmt(totalEcon)} no custo de produção, refletindo proporcionalmente na taxa e nos impostos, chegando ao valor final de ${fmt(S.fiscal.verba)}.`;
 
@@ -668,7 +735,7 @@ function renderAjuste(){
   <div class="panel">
     <div class="panel-title">Ajuste de escopo — original × adequado à verba</div>
     <div class="kpi-grid" style="margin-bottom:16px">
-      <div class="kpi"><div class="k-label">Orçamento original</div><div class="k-val">${fmt(k.totalIdeal)}</div></div>
+      <div class="kpi"><div class="k-label">Orçamento original</div><div class="k-val">${fmt(k.totalCalc)}</div></div>
       <div class="kpi"><div class="k-label">Verba aprovada</div><div class="k-val" style="color:var(--blue-in)">${fmt(S.fiscal.verba)}</div></div>
       <div class="kpi"><div class="k-label">Meta de corte na produção</div><div class="k-val v-yellow">${fmt(meta)}</div></div>
     </div>
@@ -704,7 +771,7 @@ function copyText(){
 function renderHistorico(){
   const list = loadHist();
   const dotColor = k => k==='green'?'var(--green)':k==='yellow'?'var(--yellow)':'var(--red)';
-  const statusTxt = k => k==='green'?'Saudável':k==='yellow'?'No limite':'Prejuízo';
+  const statusTxt = k => k==='green'?'Saudável':k==='yellow'?'Apertado':'Prejuízo';
   const rows = list.map(p=>`
     <tr>
       <td>
@@ -713,7 +780,7 @@ function renderHistorico(){
       </td>
       <td style="text-align:right">${fmt(p.total)}</td>
       <td style="text-align:right">${fmt(p.verba)}</td>
-      <td style="text-align:right;color:${dotColor(p.status)}">${fmt(p.lucro)}</td>
+      <td style="text-align:right;color:${dotColor(p.status)}">${fmt(p.lucro!==undefined?p.lucro:0)}</td>
       <td style="text-align:center"><span class="dot" style="background:${dotColor(p.status)};margin:0 6px 0 0"></span><span style="font-size:11px;color:${dotColor(p.status)}">${statusTxt(p.status)}</span></td>
       <td style="text-align:right;white-space:nowrap">
         <button class="btn btn-ghost" style="padding:5px 10px;font-size:10px" onclick="abrirDoHistorico('${p.id}')">Abrir</button>
@@ -754,7 +821,7 @@ function renderAll(){
 }
 function upd(cat,idx,field,val){
   const it=S.items[cat][idx];
-  it[field] = (field==='q'||field==='v'||field==='c') ? num(val) : val;
+  it[field] = (field==='q'||field==='v'||field==='vi') ? num(val) : val;
   save();
   // live-update the row total + category total + tab dot, without re-rendering (keeps input focus)
   liveUpdateDados();
@@ -788,7 +855,8 @@ function updFiscal(field,val){
   renderTabs();
 }
 function toggleCat(id){S.openCats[id]=!S.openCats[id];save();renderDados();}
-function addItem(cat){if(!S.items[cat])S.items[cat]=[];S.items[cat].push({d:"",q:1,v:0,c:0,i:""});S.openCats[cat]=true;save();renderDados();}
+function toggleIdeal(){S.showIdeal=!S.showIdeal;save();renderDados();}
+function addItem(cat){if(!S.items[cat])S.items[cat]=[];S.items[cat].push({d:"",q:1,vi:0,v:0,i:""});S.openCats[cat]=true;save();renderDados();}
 function delItem(cat,idx){S.items[cat].splice(idx,1);save();renderDados();}
 function updAj(idx,field,val){S.ajustes[idx][field]=(['qo','vo','qa','va'].includes(field))?num(val):val;save();renderAjuste();}
 function addAj(){S.ajustes.push({cat:"",item:"",qo:0,vo:0,qa:0,va:0,obs:""});save();renderAjuste();}

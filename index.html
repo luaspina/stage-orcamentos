@@ -188,8 +188,9 @@
       <div class="eyebrow">Stage Films</div>
       <input class="proj-name" id="projName" value="Ford Ranger Limited — 2 Diárias">
     </div>
-    <div style="display:flex;gap:8px;align-items:center">
+    <div style="display:flex;gap:10px;align-items:center">
       <span id="saveHint" style="font-size:10px;color:#444"></span>
+      <button class="btn" style="padding:7px 14px;font-size:11px" onclick="salvarNoHistorico()">💾 Salvar no histórico</button>
     </div>
   </div>
 
@@ -202,6 +203,7 @@
   <div class="view" id="v-analise"></div>
   <div class="view" id="v-saude"></div>
   <div class="view" id="v-ajuste"></div>
+  <div class="view" id="v-historico"></div>
 </div>
 
 <script>
@@ -253,6 +255,7 @@ const DEFAULTS = {
 };
 
 const KEY="stage_orcamento_html_v1";
+const HKEY="stage_orcamento_historico_v1";
 let S = load();
 function load(){
   try{const raw=localStorage.getItem(KEY); if(raw) return JSON.parse(raw);}catch(e){}
@@ -265,6 +268,78 @@ function save(){
     const h=document.getElementById('saveHint');
     if(h){h.textContent='✓ salvo'; clearTimeout(saveTimer); saveTimer=setTimeout(()=>h.textContent='',1500);}
   }catch(e){}
+}
+
+
+/* ============ HISTÓRICO (lista de orçamentos salvos) ============ */
+function loadHist(){
+  try{const raw=localStorage.getItem(HKEY); if(raw) return JSON.parse(raw);}catch(e){}
+  return [];
+}
+function saveHist(list){
+  try{localStorage.setItem(HKEY,JSON.stringify(list));}catch(e){}
+}
+function snapshotCurrent(){
+  // deep copy of the current working state
+  const copy = JSON.parse(JSON.stringify(S));
+  const k = calc();
+  const h = healthState();
+  return {
+    id: "p"+Date.now(),
+    nome: S.projName || "Sem nome",
+    cliente: S.cliente || "",
+    data: new Date().toLocaleDateString('pt-BR'),
+    ts: Date.now(),
+    total: k.totalIdeal,
+    verba: S.fiscal.verba,
+    lucro: k.lucro,
+    margem: k.margem,
+    status: h.key,
+    estado: copy
+  };
+}
+function salvarNoHistorico(){
+  const list = loadHist();
+  const snap = snapshotCurrent();
+  // se já existe um projeto com mesmo nome salvo hoje, pergunta se sobrescreve
+  const dup = list.find(p=>p.nome===snap.nome);
+  if(dup){
+    if(!confirm(`Já existe "${snap.nome}" no histórico. Deseja salvar como uma nova versão?\n\n(OK = nova versão · Cancelar = não salvar)`)){
+      return;
+    }
+    snap.nome = snap.nome + " (v" + (list.filter(p=>p.nome.startsWith(dup.nome)).length+1) + ")";
+  }
+  list.unshift(snap);
+  saveHist(list);
+  renderHistorico();
+}
+function abrirDoHistorico(id){
+  const list = loadHist();
+  const p = list.find(x=>x.id===id);
+  if(!p) return;
+  if(!confirm(`Abrir "${p.nome}"? As alterações não salvas no orçamento atual serão perdidas.`)) return;
+  S = JSON.parse(JSON.stringify(p.estado));
+  save();
+  document.getElementById('projName').value = S.projName;
+  go('dados');
+}
+function apagarDoHistorico(id){
+  const list = loadHist();
+  const p = list.find(x=>x.id===id);
+  if(!p) return;
+  if(!confirm(`Apagar "${p.nome}" do histórico? Esta ação não pode ser desfeita.`)) return;
+  saveHist(list.filter(x=>x.id!==id));
+  renderHistorico();
+}
+function novoOrcamento(){
+  if(!confirm("Começar um orçamento novo em branco? Salve o atual no histórico antes, se quiser guardá-lo.")) return;
+  S = JSON.parse(JSON.stringify(DEFAULTS));
+  S.projName="Novo projeto"; S.cliente=""; 
+  S.items={pre:[],locacao:[],producao:[],tecnica:[],equip:[],logistica:[],elenco:[],pos:[],reembolsos:[]};
+  S.ajustes=[];
+  save();
+  document.getElementById('projName').value = S.projName;
+  go('dados');
 }
 
 /* ============ HELPERS ============ */
@@ -312,6 +387,7 @@ const TABS=[
   {id:"analise",label:"Análise de Custos"},
   {id:"saude",label:"Saúde do Projeto"},
   {id:"ajuste",label:"Ajuste de Escopo"},
+  {id:"historico",label:"Histórico"},
 ];
 let activeTab = "inicio";
 function renderTabs(){
@@ -623,6 +699,48 @@ function copyText(){
   });
 }
 
+
+/* ============ RENDER: HISTÓRICO ============ */
+function renderHistorico(){
+  const list = loadHist();
+  const dotColor = k => k==='green'?'var(--green)':k==='yellow'?'var(--yellow)':'var(--red)';
+  const statusTxt = k => k==='green'?'Saudável':k==='yellow'?'No limite':'Prejuízo';
+  const rows = list.map(p=>`
+    <tr>
+      <td>
+        <div style="font-weight:600;color:var(--txt)">${esc(p.nome)}</div>
+        <div style="font-size:10px;color:var(--txt-dim)">${esc(p.cliente)||'—'} · salvo em ${p.data}</div>
+      </td>
+      <td style="text-align:right">${fmt(p.total)}</td>
+      <td style="text-align:right">${fmt(p.verba)}</td>
+      <td style="text-align:right;color:${dotColor(p.status)}">${fmt(p.lucro)}</td>
+      <td style="text-align:center"><span class="dot" style="background:${dotColor(p.status)};margin:0 6px 0 0"></span><span style="font-size:11px;color:${dotColor(p.status)}">${statusTxt(p.status)}</span></td>
+      <td style="text-align:right;white-space:nowrap">
+        <button class="btn btn-ghost" style="padding:5px 10px;font-size:10px" onclick="abrirDoHistorico('${p.id}')">Abrir</button>
+        <button class="btn btn-ghost" style="padding:5px 10px;font-size:10px" onclick="apagarDoHistorico('${p.id}')">Apagar</button>
+      </td>
+    </tr>`).join('');
+
+  document.getElementById('v-historico').innerHTML=`
+  <div class="btn-row">
+    <button class="btn" onclick="salvarNoHistorico()">💾 Salvar orçamento atual</button>
+    <button class="btn btn-ghost" onclick="novoOrcamento()">+ Novo orçamento em branco</button>
+  </div>
+  <div class="panel">
+    <div class="panel-title">Histórico de orçamentos salvos${list.length?' ('+list.length+')':''}</div>
+    ${list.length===0
+      ? '<div style="text-align:center;padding:40px 20px;color:var(--txt-dim);font-size:13px">Nenhum orçamento salvo ainda.<br><br>Preencha um orçamento na aba Dados e clique em <b style="color:var(--gold)">Salvar orçamento atual</b> para guardá-lo aqui.</div>'
+      : `<table class="an-table">
+          <tr><th>Projeto</th><th style="text-align:right">Total</th><th style="text-align:right">Verba</th><th style="text-align:right">Lucro</th><th style="text-align:center">Saúde</th><th></th></tr>
+          ${rows}
+        </table>`
+    }
+  </div>
+  <div class="callout">
+    <b>Como funciona:</b> "Salvar orçamento atual" tira uma foto do que está nas abas agora e guarda na lista. Você pode reabrir qualquer um depois (substitui o que está em edição) ou começar um novo em branco. Tudo fica salvo no navegador.
+  </div>`;
+}
+
 /* ============ HANDLERS ============ */
 function renderAll(){
   if(activeTab==='inicio')renderInicio();
@@ -631,6 +749,7 @@ function renderAll(){
   if(activeTab==='analise')renderAnalise();
   if(activeTab==='saude')renderSaude();
   if(activeTab==='ajuste')renderAjuste();
+  if(activeTab==='historico')renderHistorico();
   renderTabs();
 }
 function upd(cat,idx,field,val){

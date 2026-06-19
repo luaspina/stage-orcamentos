@@ -865,12 +865,67 @@ function renderSaude(){
     ["Margem ideal",pct(k.margemIdeal),'v-green'],
   ];
 
+  // ── Régua de distância até o ideal ──
+  const pIdeal = k.totalIdeal;           // teto dos sonhos
+  const pAtual = k.totalCalc;            // o que está cobrando hoje
+  const pVerba = S.fiscal.verba>0 ? S.fiscal.verba : k.totalCalc; // verba/proposta digitada
+  const maxRange = Math.max(pIdeal, pVerba, pAtual) * 1.02;
+  const minRange = 0;
+  const posPct = v => Math.max(0, Math.min(100, ((v-minRange)/(maxRange-minRange))*100));
+  const distIdealAtual = pIdeal - pAtual;          // quanto falta do atual até o ideal
+  const distIdealAtualP = pIdeal>0 ? distIdealAtual/pIdeal : 0;
+  const distIdealVerba = pIdeal - pVerba;          // quanto a verba está abaixo do ideal
+  const distIdealVerbaP = pIdeal>0 ? distIdealVerba/pIdeal : 0;
+  // quão "perto do sonho" a verba está (0% = longe, 100% = no ideal)
+  const proximidade = pIdeal>0 ? (pVerba/pIdeal) : 1;
+  const proxCls = proximidade>=0.9 ? 'v-green' : proximidade>=0.75 ? 'v-yellow' : 'v-red';
+  const proxTxt = proximidade>=0.9 ? 'perto do ideal — pouca margem pra puxar' : proximidade>=0.75 ? 'distância média — vale tentar puxar pra cima' : 'longe do ideal — negocie mais antes de fechar';
+
+  const reguaHTML = `
+  <div class="panel">
+    <div class="panel-title">📏 Distância até o cenário ideal</div>
+    <div style="margin:18px 4px 8px">
+      <div style="position:relative;height:48px">
+        <!-- trilho -->
+        <div style="position:absolute;top:22px;left:0;right:0;height:4px;background:#222;border-radius:2px"></div>
+        <!-- preenchimento do 0 até a verba -->
+        <div style="position:absolute;top:22px;left:0;width:${posPct(pVerba)}%;height:4px;background:linear-gradient(90deg,#2a5c34,#5ec27a);border-radius:2px"></div>
+        <!-- marcador: total atual -->
+        <div style="position:absolute;top:14px;left:${posPct(pAtual)}%;transform:translateX(-50%);text-align:center">
+          <div style="width:2px;height:20px;background:#888;margin:0 auto"></div>
+          <div style="font-size:8px;color:#888;white-space:nowrap;margin-top:2px">atual</div>
+        </div>
+        <!-- marcador: verba/proposta -->
+        <div style="position:absolute;top:0;left:${posPct(pVerba)}%;transform:translateX(-50%);text-align:center;z-index:2">
+          <div style="font-size:8px;color:var(--blue-in);white-space:nowrap;margin-bottom:2px">verba/proposta</div>
+          <div style="width:3px;height:24px;background:var(--blue-in);margin:0 auto;border-radius:2px"></div>
+        </div>
+        <!-- marcador: ideal -->
+        <div style="position:absolute;top:14px;left:${posPct(pIdeal)}%;transform:translateX(-50%);text-align:center">
+          <div style="width:2px;height:20px;background:#d4b84a;margin:0 auto"></div>
+          <div style="font-size:8px;color:#d4b84a;white-space:nowrap;margin-top:2px">★ ideal</div>
+        </div>
+      </div>
+    </div>
+    <div class="kpi-grid" style="margin-top:8px">
+      <div class="kpi"><div class="k-label">Verba / proposta atual</div><div class="k-val" style="color:var(--blue-in)">${fmt(pVerba)}</div></div>
+      <div class="kpi"><div class="k-label">Cenário ideal (teto)</div><div class="k-val" style="color:#d4b84a">${fmt(pIdeal)}</div></div>
+      <div class="kpi"><div class="k-label">Distância até o ideal</div><div class="k-val ${proxCls}">${fmt(Math.max(0,distIdealVerba))} (${pct(Math.max(0,distIdealVerbaP))})</div></div>
+      <div class="kpi"><div class="k-label">Você está a</div><div class="k-val ${proxCls}">${pct(proximidade)} do ideal</div></div>
+    </div>
+    <div class="callout" style="border-color:${proximidade>=0.9?'#2a5c34':proximidade>=0.75?'#5c5021':'#5c2620'};background:${proximidade>=0.9?'#0f1f12':proximidade>=0.75?'#1a1408':'#1f0f0d'};color:${proximidade>=0.9?'#a8d0b0':proximidade>=0.75?'#cbb878':'#d0a8a4'}">
+      Sua verba/proposta está em <b>${pct(proximidade)}</b> do cenário ideal — ${proxTxt}. ${distIdealVerba>0.5?`Há <b>${fmt(distIdealVerba)}</b> de espaço entre o que você vai cobrar e o valor cheio. Se a distância for grande, vale mandar uma proposta mais alta e negociar para baixo.`:'Você está cobrando no teto ideal ou acima.'}
+    </div>
+  </div>`;
+
   document.getElementById('v-saude').innerHTML=`
   <div class="status ${h.key}">
     <span class="s-emoji">${h.emoji}</span>
     <div class="s-text">${h.text}</div>
     <div class="s-sub">${h.sub}</div>
   </div>
+
+  ${reguaHTML}
 
   <div class="panel">
     <div class="panel-title">💚 Cenário real — o que de fato entra (base: verba negociada)</div>
@@ -895,10 +950,19 @@ function renderSaude(){
 /* ============ RENDER: AJUSTE DE ESCOPO ============ */
 function renderAjuste(){
   const k=calc();
-  const totalEcon = S.ajustes.reduce((s,a)=>s+(num(a.vo)-num(a.va)),0);
-  const meta = k.corteR;
-  const ok = totalEcon>=meta;
-  const rows=S.ajustes.map((a,idx)=>`
+  const totalAjustado = S.ajustes.reduce((s,a)=>s+(num(a.va)-num(a.vo)),0); // soma das diferenças (ajustado - original)
+  // gapVerba > 0 => sobra verba (modo SUBIDA). gapVerba < 0 => falta verba (modo CORTE).
+  const modoSubida = k.gapVerba > 0.5;
+  const modoCorte  = k.gapVerba < -0.5;
+
+  // meta: em corte é quanto reduzir; em subida é quanto dá pra subir (limitado pela folga dos itens)
+  const metaCorte = k.corteR;
+  const folgaParaSubir = Math.min(k.folgaDisponivel, k.gapVerba>0 ? k.gapVerba/(1+k.t+k.i) : 0);
+
+  const rows=S.ajustes.map((a,idx)=>{
+    const dif = num(a.va)-num(a.vo); // positivo = subiu, negativo = cortou
+    const difCls = dif>0 ? 'v-green' : (dif<0 ? 'v-yellow' : '');
+    return `
     <tr>
       <td style="width:120px"><input class="txt" value="${esc(a.cat)}" oninput="updAj(${idx},'cat',this.value)"></td>
       <td><input class="txt" value="${esc(a.item)}" oninput="updAj(${idx},'item',this.value)"></td>
@@ -906,33 +970,66 @@ function renderAjuste(){
       <td style="width:90px"><input type="number" value="${a.vo}" oninput="updAj(${idx},'vo',this.value)"></td>
       <td style="width:50px"><input type="number" value="${a.qa}" oninput="updAj(${idx},'qa',this.value)"></td>
       <td style="width:90px"><input type="number" value="${a.va}" oninput="updAj(${idx},'va',this.value)"></td>
-      <td class="econ" style="width:90px">${fmt(num(a.vo)-num(a.va))}</td>
+      <td class="${difCls}" style="width:100px;text-align:right;white-space:nowrap;font-weight:500">${dif>0?'+':''}${fmt(dif)}</td>
       <td style="width:28px"><button class="del" onclick="delAj(${idx})" style="background:none;border:none;color:#444;cursor:pointer">✕</button></td>
-    </tr>`).join('');
+    </tr>`;}).join('');
 
-  // client text
-  let ctext=`Para adequar o orçamento à verba aprovada de ${fmt(S.fiscal.verba)}, realizamos os seguintes ajustes de escopo em relação à proposta original (${fmt(k.totalCalc)}):\n\n`;
-  S.ajustes.forEach(a=>{if(a.item)ctext+=`• ${a.item}: de ${a.qo} para ${a.qa} — ${a.obs}\n`;});
-  ctext+=`\nEsses ajustes resultam em uma redução de ${fmt(totalEcon)} no custo de produção, refletindo proporcionalmente na taxa e nos impostos, chegando ao valor final de ${fmt(S.fiscal.verba)}.`;
+  // texto pro cliente, adaptado ao modo
+  let ctext;
+  if(modoCorte){
+    ctext=`Para adequar o orçamento à verba aprovada de ${fmt(S.fiscal.verba)}, realizamos os seguintes ajustes de escopo em relação à proposta original (${fmt(k.totalCalc)}):\n\n`;
+    S.ajustes.forEach(a=>{if(a.item)ctext+=`• ${a.item}: de ${a.qo} para ${a.qa} — ${a.obs}\n`;});
+    ctext+=`\nEsses ajustes reduzem o custo de produção, refletindo proporcionalmente na taxa e nos impostos, chegando ao valor final de ${fmt(S.fiscal.verba)}.`;
+  }else{
+    ctext=`Proposta com escopo completo, considerando os valores cheios de cada item:\n\n`;
+    S.ajustes.forEach(a=>{if(a.item)ctext+=`• ${a.item}: ${a.obs||'valor cheio aplicado'}\n`;});
+    ctext+=`\nTotal da proposta: ${fmt(k.totalCalc + totalAjustado*(1+k.t+k.i))}.`;
+  }
+
+  // cabeçalho dinâmico
+  let header, metaCard, callout;
+  if(modoSubida){
+    header = "Ajuste de escopo — aproveitar a folga da verba (subir até o ideal)";
+    metaCard = `<div class="kpi"><div class="k-label">Folga disponível p/ subir</div><div class="k-val v-green">${fmt(folgaParaSubir*(1+k.t+k.i))}</div></div>`;
+    callout = `<div class="callout" style="border-color:#2a5c34;background:#0f1f12;color:#a8d0b0">💰 A verba do cliente (${fmt(S.fiscal.verba)}) é <b>maior</b> que o total atual (${fmt(k.totalCalc)}). Você tem espaço para subir os itens em direção ao Valor Ideal — recuperando até <b>${fmt(folgaParaSubir*(1+k.t+k.i))}</b> de receita. Documente abaixo quais itens subiram e use isso como reserva de segurança. <b>Atalho:</b> a aba Dados tem um slider de reserva que faz isso automaticamente.</div>`;
+  } else if(modoCorte){
+    header = "Ajuste de escopo — adequar à verba (cortar o excedente)";
+    metaCard = `<div class="kpi"><div class="k-label">Meta de corte na produção</div><div class="k-val v-yellow">${fmt(metaCorte)}</div></div>`;
+    callout = `<div class="callout">⚠ A verba (${fmt(S.fiscal.verba)}) é <b>menor</b> que o total (${fmt(k.totalCalc)}). Reduzindo <b>${fmt(metaCorte)}</b> na produção, taxa e impostos caem proporcionalmente e o total chega aos ${fmt(S.fiscal.verba)} aprovados.</div>`;
+  } else {
+    header = "Ajuste de escopo";
+    metaCard = `<div class="kpi"><div class="k-label">Situação</div><div class="k-val v-green">No alvo</div></div>`;
+    callout = `<div class="callout">✓ O total a cobrar bateu certinho com a verba. Sem ajustes necessários.</div>`;
+  }
+
+  // status de fechamento
+  let statusBox = '';
+  if(modoCorte){
+    const cortado = -totalAjustado; // em corte, ajustes são negativos
+    const ok = cortado >= metaCorte - 0.5;
+    statusBox = `<div class="status ${ok?'green':'yellow'}" style="margin-top:12px;padding:14px"><div class="s-text" style="font-size:14px">${ok?'✅ Corte suficiente — escopo cabe na verba':'⚠️ Faltam '+fmt(metaCorte-cortado)+' de corte para fechar'}</div></div>`;
+  } else if(modoSubida){
+    const subido = totalAjustado;
+    statusBox = `<div class="status green" style="margin-top:12px;padding:14px"><div class="s-text" style="font-size:14px">Você subiu ${fmt(subido)} no subtotal → ${fmt(subido*(1+k.t+k.i))} a mais no total cobrado</div></div>`;
+  }
 
   document.getElementById('v-ajuste').innerHTML=`
   <div class="panel">
-    <div class="panel-title">Ajuste de escopo — original × adequado à verba</div>
+    <div class="panel-title">${header}</div>
     <div class="kpi-grid" style="margin-bottom:16px">
-      <div class="kpi"><div class="k-label">Orçamento original</div><div class="k-val">${fmt(k.totalCalc)}</div></div>
-      <div class="kpi"><div class="k-label">Verba aprovada</div><div class="k-val" style="color:var(--blue-in)">${fmt(S.fiscal.verba)}</div></div>
-      <div class="kpi"><div class="k-label">Meta de corte na produção</div><div class="k-val v-yellow">${fmt(meta)}</div></div>
+      <div class="kpi"><div class="k-label">Total atual a cobrar</div><div class="k-val">${fmt(k.totalCalc)}</div></div>
+      <div class="kpi"><div class="k-label">Verba do cliente</div><div class="k-val" style="color:var(--blue-in)">${fmt(S.fiscal.verba)}</div></div>
+      ${metaCard}
+      <div class="kpi"><div class="k-label">Diferença</div><div class="k-val ${modoSubida?'v-green':modoCorte?'v-yellow':''}">${k.gapVerba>0?'+':''}${fmt(k.gapVerba)}</div></div>
     </div>
-    <div class="callout">⚠ Taxa (${S.fiscal.taxa}%) e impostos (${S.fiscal.imposto}%) são calculados sobre o custo de produção. Reduzindo <b>${fmt(meta)}</b> na produção, taxa e impostos caem proporcionalmente e o total chega aos ${fmt(S.fiscal.verba)} aprovados.</div>
+    ${callout}
     <table class="aj-table">
-      <tr><th>Categoria</th><th>Item / justificativa</th><th>Qtd orig.</th><th>Valor orig.</th><th>Qtd ajust.</th><th>Valor ajust.</th><th style="text-align:right">Economia</th><th></th></tr>
+      <tr><th>Categoria</th><th>Item / justificativa</th><th>Qtd orig.</th><th>Valor orig.</th><th>Qtd ${modoSubida?'nova':'ajust.'}</th><th>Valor ${modoSubida?'novo':'ajust.'}</th><th style="text-align:right">${modoSubida?'Aumento':'Diferença'}</th><th></th></tr>
       ${rows}
     </table>
     <button class="add-item" onclick="addAj()">+ Adicionar linha de ajuste</button>
-    <div class="res-row" style="margin-top:14px"><span class="rlabel" style="color:var(--gold)">Total economizado na produção</span><span class="rval" style="color:var(--gold);font-size:16px">${fmt(totalEcon)}</span></div>
-    <div class="status ${ok?'green':'yellow'}" style="margin-top:12px;padding:14px">
-      <div class="s-text" style="font-size:14px">${ok?'✅ Economia suficiente — escopo cabe na verba':'⚠️ Faltam '+fmt(meta-totalEcon)+' para atingir a meta'}</div>
-    </div>
+    <div class="res-row" style="margin-top:14px"><span class="rlabel" style="color:var(--gold)">${modoSubida?'Total ajustado (subida)':'Total ajustado'}</span><span class="rval" style="color:var(--gold);font-size:16px">${totalAjustado>0?'+':''}${fmt(totalAjustado)}</span></div>
+    ${statusBox}
   </div>
 
   <div class="panel">

@@ -55,6 +55,13 @@
   .irow input:focus{outline:none;border-color:var(--gold)}
   .irow input.txt{color:var(--txt);text-align:left}
   .irow input.num{text-align:center}
+  /* remove setinhas do type=number que atrapalham campos estreitos */
+  .irow input[type=number]::-webkit-inner-spin-button,
+  .irow input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+  .irow input[type=number]{-moz-appearance:textfield}
+  .aj-table input[type=number]::-webkit-inner-spin-button,
+  .aj-table input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+  .aj-table input[type=number]{-moz-appearance:textfield}
   .irow input.money{text-align:right}
   .irow .total{color:var(--gold);font-weight:500;text-align:right;font-size:12px;white-space:nowrap}
   .irow .del{background:none;border:none;color:#444;cursor:pointer;font-size:13px;padding:2px}
@@ -363,7 +370,15 @@ function novoOrcamento(){
 const fmt=v=>new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(v||0);
 const ceil5=v=>Math.ceil((v||0)/5)*5;  // arredonda pra cima até o próximo múltiplo de 5
 const pct=v=>(v*100).toFixed(1).replace('.',',')+'%';
-const num=v=>{const n=parseFloat(String(v).replace(/\./g,'').replace(',','.'));return isNaN(n)?0:n;};
+const num=v=>{
+  if(v===''||v===null||v===undefined) return 0;
+  let s=String(v).trim();
+  // se tem vírgula, é formato BR (1.234,56) -> tira pontos de milhar, vírgula vira ponto
+  if(s.indexOf(',')>=0){ s=s.replace(/\./g,'').replace(',','.'); }
+  // senão, é número padrão (ponto = decimal) -> deixa como está
+  const n=parseFloat(s);
+  return isNaN(n)?0:n;
+};
 
 function catTotal(id){return (S.items[id]||[]).reduce((s,it)=>s+(it.q||0)*(it.v||0),0);}   // valor COBRADO (soma)
 function catIdeal(id){return (S.items[id]||[]).reduce((s,it)=>s+(it.q||0)*(it.vi||0),0);}  // valor IDEAL (comparação)
@@ -503,7 +518,7 @@ function renderDados(){
     const rows = (S.items[cat.id]||[]).map((it,idx)=>`
       <tr class="irow">
         <td><input class="txt" value="${esc(it.d)}" oninput="upd('${cat.id}',${idx},'d',this.value)"></td>
-        <td style="width:50px"><input class="num" type="number" value="${it.q}" oninput="upd('${cat.id}',${idx},'q',this.value)"></td>
+        <td style="width:64px"><input class="num" type="number" inputmode="decimal" value="${it.q}" oninput="upd('${cat.id}',${idx},'q',this.value)"></td>
         ${showIdeal?`<td style="width:100px"><input class="money" type="number" value="${it.vi}" oninput="upd('${cat.id}',${idx},'vi',this.value)" title="Valor ideal unitário (quanto você gostaria de cobrar)" style="border-color:#3a3320;color:#d4b84a"></td>`:''}
         <td style="width:110px"><input class="money" type="number" value="${it.v}" oninput="upd('${cat.id}',${idx},'v',this.value)" title="Valor cobrado ao cliente (unitário) — este é o que soma"></td>
         <td class="total" id="rowtot-${cat.id}-${idx}">${fmt(it.q*it.v)}</td>

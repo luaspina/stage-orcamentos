@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stage Films — Orçamento de Produção</title>
+<style>
+  :root{
+    --bg:#0d0d0d; --panel:#141414; --panel2:#1a1a1a; --line:#262626;
+    --gold:#c9a227; --gold-soft:#e0bf4d; --txt:#e8e0d0; --txt-dim:#8a8276;
+    --blue-in:#9fc0ff; --input-bg:#11151f;
+    --green:#5ec27a; --green-bg:#0f1f12;
+    --yellow:#e0b53d; --yellow-bg:#211c0a;
+    --red:#e06a5e; --red-bg:#1f0f0d;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--txt);font-family:'IBM Plex Mono','SF Mono',Menlo,monospace;font-size:13px;line-height:1.5}
+  .app{max-width:1180px;margin:0 auto;padding:0 0 80px}
+  /* Header */
+  .top{background:#0d0d0d;border-bottom:1px solid var(--line);padding:18px 24px;display:flex;align-items:center;justify-content:space-between;gap:16px;position:sticky;top:0;z-index:50}
+  .brand{font-family:'DM Sans',system-ui,sans-serif}
+  .brand .eyebrow{font-size:10px;letter-spacing:.25em;color:var(--txt-dim);text-transform:uppercase}
+  .brand h1{font-size:19px;font-weight:700;color:var(--txt);letter-spacing:-.01em;margin-top:2px}
+  .proj-name{background:transparent;border:none;border-bottom:1px solid var(--line);color:var(--txt);font:inherit;font-family:'DM Sans',sans-serif;font-size:19px;font-weight:700;padding:2px 0;width:340px;max-width:50vw}
+  .proj-name:focus{outline:none;border-color:var(--gold)}
+  /* Tabs */
+  .tabs{display:flex;gap:4px;background:#0d0d0d;border-bottom:1px solid var(--line);padding:0 24px;overflow-x:auto;position:sticky;top:73px;z-index:49}
+  .tab{padding:12px 18px;background:none;border:none;border-bottom:2px solid transparent;color:var(--txt-dim);font:inherit;font-size:12px;cursor:pointer;white-space:nowrap;text-transform:uppercase;letter-spacing:.06em;transition:.15s}
+  .tab:hover{color:var(--txt)}
+  .tab.active{color:var(--gold);border-bottom-color:var(--gold)}
+  .tab .dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-left:7px;vertical-align:middle}
+  /* Views */
+  .view{display:none;padding:24px}
+  .view.active{display:block}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:20px;margin-bottom:16px}
+  .panel-title{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--txt-dim);margin-bottom:14px}
+  /* Sections (categorias) */
+  .cat{border:1px solid var(--line);border-radius:8px;margin-bottom:8px;overflow:hidden}
+  .cat-head{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;cursor:pointer;background:var(--panel);user-select:none}
+  .cat-head:hover{background:var(--panel2)}
+  .cat-head .label{display:flex;align-items:center;gap:10px;font-size:12px;text-transform:uppercase;letter-spacing:.05em}
+  .cat-head .icon{font-size:14px}
+  .cat-total{color:var(--gold);font-weight:500}
+  .cat-total.zero{color:#444}
+  .cat-body{display:none;padding:0 16px 14px;background:#0a0a0a}
+  .cat.open .cat-body{display:block}
+  .cat.open .cat-head{background:var(--panel2)}
+  .chev{color:#555;font-size:10px;transition:transform .2s}
+  .cat.open .chev{transform:rotate(180deg)}
+  /* Item table */
+  table{width:100%;border-collapse:collapse}
+  .ihead th{font-size:9px;color:#555;text-transform:uppercase;letter-spacing:.08em;text-align:left;padding:8px 6px 6px;border-bottom:1px solid var(--line);font-weight:400}
+  .irow td{padding:5px 6px;border-bottom:1px solid #141414;vertical-align:middle}
+  .irow input{background:var(--input-bg);border:1px solid #222;border-radius:4px;color:var(--blue-in);font:inherit;font-size:12px;padding:5px 7px;width:100%}
+  .irow input:focus{outline:none;border-color:var(--gold)}
+  .irow input.txt{color:var(--txt);text-align:left}
+  .irow input.num{text-align:center}
+  .irow input.money{text-align:right}
+  .irow .total{color:var(--gold);font-weight:500;text-align:right;font-size:12px;white-space:nowrap}
+  .irow .del{background:none;border:none;color:#444;cursor:pointer;font-size:13px;padding:2px}
+  .irow .del:hover{color:var(--red)}
+  .add-item{margin-top:10px;padding:6px 12px;background:none;border:1px dashed #2a2a2a;border-radius:4px;color:#555;font:inherit;font-size:10px;cursor:pointer;text-transform:uppercase;letter-spacing:.08em}
+  .add-item:hover{border-color:var(--gold);color:var(--gold)}
+  /* Config fiscal */
+  .cfg-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .cfg-field label{display:block;font-size:10px;color:var(--txt-dim);text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px}
+  .cfg-field .hint{color:#555;text-transform:none;letter-spacing:0}
+  .cfg-field input{width:100%;background:var(--input-bg);border:1px solid #222;border-bottom:2px solid var(--gold);border-radius:4px;color:var(--blue-in);font:inherit;font-size:16px;font-weight:700;padding:8px 10px;text-align:right}
+  .cfg-field input:focus{outline:none;border-color:var(--gold-soft)}
+  /* Result rows */
+  .res-row{display:flex;justify-content:space-between;align-items:baseline;padding:9px 0;border-bottom:1px solid #181818}
+  .res-row .rlabel{font-size:11px;color:var(--txt-dim);text-transform:uppercase;letter-spacing:.04em}
+  .res-row .rlabel.sub{padding-left:14px;text-transform:none;color:#666}
+  .res-row .rval{font-size:13px;color:var(--txt);font-weight:500}
+  .res-big{padding:14px;border:1px solid var(--line);border-radius:8px;margin-top:12px;background:#0a0a0a}
+  .res-big .rb-label{font-size:10px;color:var(--txt-dim);text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px}
+  .res-big .rb-val{font-size:26px;font-weight:700;font-family:'DM Sans',sans-serif;color:var(--gold)}
+  .res-big.lucro .rb-val{font-size:22px}
+  /* KPI grid */
+  .kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+  .kpi{background:#0a0a0a;border:1px solid var(--line);border-radius:8px;padding:14px}
+  .kpi .k-label{font-size:9px;color:var(--txt-dim);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px}
+  .kpi .k-val{font-size:17px;font-weight:700;font-family:'DM Sans',sans-serif}
+  /* Status banner */
+  .status{border-radius:10px;padding:24px;text-align:center;margin-bottom:16px;border:1px solid}
+  .status .s-emoji{font-size:32px;display:block;margin-bottom:8px}
+  .status .s-text{font-size:18px;font-weight:700;font-family:'DM Sans',sans-serif;letter-spacing:-.01em}
+  .status .s-sub{font-size:12px;margin-top:6px;opacity:.85}
+  .status.green{background:var(--green-bg);border-color:#2a5c34;color:var(--green)}
+  .status.yellow{background:var(--yellow-bg);border-color:#5c5021;color:var(--yellow)}
+  .status.red{background:var(--red-bg);border-color:#5c2620;color:var(--red)}
+  /* Generic colored values */
+  .v-green{color:var(--green)} .v-yellow{color:var(--yellow)} .v-red{color:var(--red)}
+  /* Folha de rosto */
+  .fr{background:#fff;color:#222;border-radius:10px;overflow:hidden;font-family:'DM Sans',Arial,sans-serif}
+  .fr-head{background:#0d0d0d;color:#fff;padding:28px;text-align:center}
+  .fr-head .fr-brand{font-size:30px;font-weight:700;color:var(--gold);letter-spacing:.02em}
+  .fr-head .fr-sub{font-size:11px;color:#999;letter-spacing:.1em;margin-top:6px;text-transform:uppercase}
+  .fr-info{background:#1a1a1a;padding:14px 28px}
+  .fr-info .fr-irow{display:flex;justify-content:flex-end;gap:10px;padding:3px 0}
+  .fr-info .fr-ilabel{color:#888;font-size:11px;font-weight:600}
+  .fr-info .fr-ival{color:var(--gold);font-size:12px;font-weight:600;min-width:240px}
+  .fr-body{padding:24px 28px}
+  .fr-table{width:100%;border-collapse:collapse}
+  .fr-table th{background:#1f4e79;color:#fff;font-size:11px;padding:10px 12px;text-align:left;letter-spacing:.04em}
+  .fr-table th.r{text-align:right}.fr-table th.c{text-align:center}
+  .fr-table td{padding:9px 12px;border-bottom:1px solid #eee;font-size:13px;color:#333}
+  .fr-table td.r{text-align:right;color:#1f4e79;font-variant-numeric:tabular-nums}
+  .fr-table td.c{text-align:center;font-weight:700;color:#1f4e79}
+  .fr-table tr:nth-child(even) td{background:#f8f8f8}
+  .fr-table tr.sub td{background:#e8e8e8;font-weight:700;color:#1a1a1a;border-top:2px solid #999;border-bottom:2px solid #999;font-size:14px}
+  .fr-table tr.fiscal td{background:#fff}
+  .fr-table tr.total td{background:#0d0d0d;color:#fff;font-weight:700;font-size:17px;border:none}
+  .fr-table tr.total td.r{color:var(--gold)}
+  .fr-obs{padding:18px 28px 28px}
+  .fr-obs h4{font-size:10px;color:#888;text-transform:uppercase;letter-spacing:.1em;margin-bottom:8px}
+  .fr-obs li{font-size:10px;color:#666;margin-bottom:4px;list-style:none;padding-left:12px;position:relative}
+  .fr-obs li::before{content:'·';position:absolute;left:2px}
+  /* Analysis table */
+  .an-table{width:100%;border-collapse:collapse;font-size:12px}
+  .an-table th{background:var(--panel2);color:var(--gold);font-size:9px;text-transform:uppercase;letter-spacing:.06em;padding:9px 8px;text-align:right;font-weight:500;border-bottom:1px solid var(--line)}
+  .an-table th:first-child{text-align:left}
+  .an-table td{padding:8px;border-bottom:1px solid #141414;text-align:right;font-variant-numeric:tabular-nums}
+  .an-table td:first-child{text-align:left;color:var(--txt)}
+  .an-table tr.total-row td{border-top:1px solid var(--line);font-weight:700;color:var(--txt);background:#0a0a0a}
+  /* Ajuste escopo */
+  .aj-table{width:100%;border-collapse:collapse;font-size:12px}
+  .aj-table th{background:var(--panel2);color:var(--gold);font-size:9px;text-transform:uppercase;padding:8px 6px;text-align:left;font-weight:500;letter-spacing:.05em}
+  .aj-table td{padding:4px 6px;border-bottom:1px solid #141414}
+  .aj-table input{background:var(--input-bg);border:1px solid #222;border-radius:4px;color:var(--blue-in);font:inherit;font-size:11px;padding:4px 6px;width:100%}
+  .aj-table input:focus{outline:none;border-color:var(--gold)}
+  .aj-table input.txt{color:var(--txt)}
+  .aj-table .econ{color:var(--green);font-weight:500;text-align:right;white-space:nowrap}
+  .callout{border-left:2px solid var(--gold);background:#15120a;border-radius:0 8px 8px 0;padding:12px 14px;font-size:11px;color:#cbb878;line-height:1.6;margin:12px 0}
+  .callout b{color:var(--gold)}
+  .client-text{background:#0a0a0a;border:1px solid var(--line);border-radius:8px;padding:16px;font-size:12px;color:#bbb;line-height:1.7;white-space:pre-wrap;margin-top:12px}
+  /* Buttons */
+  .btn{padding:9px 18px;background:var(--gold);color:#0d0d0d;border:none;border-radius:6px;font:inherit;font-size:12px;font-weight:700;cursor:pointer;text-transform:uppercase;letter-spacing:.06em}
+  .btn:hover{background:var(--gold-soft)}
+  .btn-ghost{background:none;border:1px solid var(--line);color:var(--txt-dim)}
+  .btn-ghost:hover{border-color:var(--gold);color:var(--gold)}
+  .btn-row{display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap}
+  /* INÍCIO */
+  .hero{text-align:center;padding:32px 20px;border-bottom:1px solid var(--line);margin-bottom:24px}
+  .hero h2{font-family:'DM Sans',sans-serif;font-size:26px;font-weight:700;color:var(--gold);margin-bottom:8px}
+  .hero p{color:var(--txt-dim);font-size:13px}
+  .rule{border-left:2px solid var(--gold);background:#15120a;border-radius:0 8px 8px 0;padding:14px 16px;margin-bottom:20px;color:var(--gold-soft);font-size:13px;line-height:1.6}
+  .steps{counter-reset:step}
+  .step{display:flex;gap:14px;padding:14px 0;border-bottom:1px solid #161616}
+  .step .num{flex-shrink:0;width:34px;height:34px;border-radius:50%;background:#2c2c2c;color:var(--gold);font-family:'DM Sans',sans-serif;font-weight:700;font-size:15px;display:flex;align-items:center;justify-content:center}
+  .step .stext{font-size:13px;color:var(--txt);line-height:1.55;padding-top:6px}
+  .step .stext b{color:var(--gold-soft)}
+  .legend-item{display:flex;gap:12px;padding:12px;border-radius:8px;margin-bottom:8px;align-items:center}
+  .legend-item .lbadge{font-weight:700;font-size:13px;white-space:nowrap;min-width:120px}
+  .legend-item .ldesc{font-size:11px;line-height:1.5}
+  .legend-item.green{background:var(--green-bg)} .legend-item.green .lbadge{color:var(--green)} .legend-item.green .ldesc{color:#a8d0b0}
+  .legend-item.yellow{background:var(--yellow-bg)} .legend-item.yellow .lbadge{color:var(--yellow)} .legend-item.yellow .ldesc{color:#cbb878}
+  .legend-item.red{background:var(--red-bg)} .legend-item.red .lbadge{color:var(--red)} .legend-item.red .ldesc{color:#d0a8a4}
+  .princ{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:8px}
+  .princ .pcard{padding:14px;border-radius:8px;font-size:11px;line-height:1.55}
+  .princ .pcard b{display:block;font-family:'DM Sans',sans-serif;font-size:13px;margin-bottom:6px}
+  .princ .pcard.blue{background:#0f1520;border:1px solid #1e3050} .princ .pcard.blue b{color:var(--blue-in)} .princ .pcard.blue{color:#9ab0d0}
+  .princ .pcard.amber{background:#15120a;border:1px solid #3a3010} .princ .pcard.amber b{color:var(--gold)} .princ .pcard.amber{color:#cbb878}
+  .formula-box{background:#0f1520;border:1px solid #1e3050;border-radius:8px;padding:16px;text-align:center;margin-top:8px}
+  .formula-box .f{font-family:'IBM Plex Mono',monospace;color:var(--blue-in);font-size:14px;font-weight:600}
+  .formula-box .ex{color:#666;font-size:11px;margin-top:8px}
+  @media(max-width:680px){
+    .cfg-grid,.princ{grid-template-columns:1fr}
+    .proj-name{max-width:40vw}
+    .irow input{font-size:11px}
+  }
+  /* Print: only folha de rosto */
+  @media print{
+    body{background:#fff}
+    .top,.tabs,.btn-row,.no-print{display:none!important}
+    .view{display:none!important;padding:0}
+    .view.active{display:block!important}
+    .fr{border-radius:0}
+    .fr-internal{display:none!important}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="top">
+    <div class="brand">
+      <div class="eyebrow">Stage Films</div>
+      <input class="proj-name" id="projName" value="Ford Ranger Limited — 2 Diárias">
+    </div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <span id="saveHint" style="font-size:10px;color:#444"></span>
+    </div>
+  </div>
+
+  <div class="tabs" id="tabs"></div>
+
+  <!-- VIEWS -->
+  <div class="view" id="v-inicio"></div>
+  <div class="view" id="v-dados"></div>
+  <div class="view" id="v-rosto"></div>
+  <div class="view" id="v-analise"></div>
+  <div class="view" id="v-saude"></div>
+  <div class="view" id="v-ajuste"></div>
+</div>
+
+<script>
+/* ============ DATA MODEL ============ */
+const CATS = [
+  {id:"pre",label:"Pré-produção",icon:"📋"},
+  {id:"locacao",label:"Locação / Cenografia",icon:"📍"},
+  {id:"producao",label:"Produção — Dia 1",icon:"🎬"},
+  {id:"tecnica",label:"Técnica — Dia 1",icon:"🎥"},
+  {id:"equip",label:"Equipamentos / Pré-light",icon:"🔦"},
+  {id:"logistica",label:"Logística / Alimentação",icon:"🚚"},
+  {id:"elenco",label:"Elenco",icon:"⭐"},
+  {id:"pos",label:"Pós-produção",icon:"✂️"},
+  {id:"reembolsos",label:"Reembolsos",icon:"🧾"},
+];
+const CAT_LABEL_FR = {
+  pre:"1.  Pré-produção", producao:"2.  Produção", locacao:"3.  Locação / Cenografia",
+  tecnica:"4.  Equipes Técnicas / Diária de Filmagem", equip:"5.  Equipamentos / Pré-light",
+  logistica:"6.  Alimentos / Transporte / Hospedagem", elenco:"7.  Elenco",
+  pos:"8.  Finalização / Pós-Produção", reembolsos:"9.  Reembolsos"
+};
+const FR_ORDER = ["pre","producao","locacao","tecnica","equip","logistica","elenco","pos","reembolsos"];
+
+const DEFAULTS = {
+  projName:"Ford Ranger Limited — 2 Diárias",
+  cliente:"Ford Brasil", data:"", responsavel:"Stage Films",
+  fiscal:{taxa:30, imposto:15, desconto:0, verba:65000},
+  items:{
+    pre:[{d:"Dir. Produção",q:1,v:3000,c:3000,i:"Lua"},{d:"Pré-Operacional",q:1,v:1000,c:1000,i:"Nayla"}],
+    locacao:[{d:"Locação",q:1,v:3500,c:3500,i:"Fazenda Embauva"}],
+    producao:[{d:"Detailler",q:2,v:800,c:800,i:"Paulo Cera"}],
+    tecnica:[
+      {d:"Diretor (2 diárias)",q:1,v:10000,c:5000,i:"Spina"},
+      {d:"Dir. Fotografia",q:2,v:3000,c:3000,i:""},
+      {d:"Assist. Fotografia",q:2,v:1500,c:1500,i:""},
+      {d:"Drone FPV GoPro+Mavic",q:2,v:2000,c:2000,i:""}],
+    equip:[{d:"Aluguel Fotografia — Matheus",q:2,v:2000,c:2000,i:""}],
+    logistica:[{d:"Catering por conta",q:8,v:120,c:120,i:""},{d:"Carretinha",q:2,v:500,c:500,i:""},{d:"Combustível",q:1,v:200,c:200,i:""}],
+    elenco:[],
+    pos:[{d:"Chefe de Edição",q:1,v:5000,c:2500,i:"Spina"},{d:"Fotos",q:30,v:500,c:66.67,i:"Spina"}],
+    reembolsos:[]
+  },
+  ajustes:[
+    {cat:"Pós-Produção",item:"Fotos (entrega final)",qo:30,vo:15000,qa:15,va:7500,obs:"Redução do volume de fotos editadas"},
+    {cat:"Equipes Técnicas",item:"Diretor — diárias",qo:2,vo:10000,qa:1,va:5000,obs:"Direção em 1 diária ao invés de 2"},
+    {cat:"Logística",item:"Equipe em set",qo:8,vo:960,qa:5,va:600,obs:"Equipe reduzida de 8 para 5 pessoas"},
+  ],
+  openCats:{tecnica:true}
+};
+
+const KEY="stage_orcamento_html_v1";
+let S = load();
+function load(){
+  try{const raw=localStorage.getItem(KEY); if(raw) return JSON.parse(raw);}catch(e){}
+  return JSON.parse(JSON.stringify(DEFAULTS));
+}
+let saveTimer=null;
+function save(){
+  try{
+    localStorage.setItem(KEY,JSON.stringify(S));
+    const h=document.getElementById('saveHint');
+    if(h){h.textContent='✓ salvo'; clearTimeout(saveTimer); saveTimer=setTimeout(()=>h.textContent='',1500);}
+  }catch(e){}
+}
+
+/* ============ HELPERS ============ */
+const fmt=v=>new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(v||0);
+const pct=v=>(v*100).toFixed(1).replace('.',',')+'%';
+const num=v=>{const n=parseFloat(String(v).replace(/\./g,'').replace(',','.'));return isNaN(n)?0:n;};
+
+function catTotal(id){return (S.items[id]||[]).reduce((s,it)=>s+(it.q||0)*(it.v||0),0);}
+function catCusto(id){return (S.items[id]||[]).reduce((s,it)=>s+(it.q||0)*(it.c||0),0);}
+function subtotal(){return CATS.reduce((s,c)=>s+catTotal(c.id),0);}
+function custoReal(){return CATS.reduce((s,c)=>s+catCusto(c.id),0);}
+
+function calc(){
+  const sub=subtotal();
+  const t=S.fiscal.taxa/100, i=S.fiscal.imposto/100, d=S.fiscal.desconto/100;
+  const totalIdeal = sub*(1+t+i-d);
+  const taxaVal = sub*t, impVal = sub*i, descVal = sub*d;
+  const custo = custoReal();
+  const verba = S.fiscal.verba>0 ? S.fiscal.verba : totalIdeal;
+  // imposto real é sobre o faturamento (verba), não sobre o custo
+  const impReal = verba*i;
+  const lucro = verba - custo - impReal;
+  const margem = verba>0 ? lucro/verba : 0;
+  // ponto de equilíbrio
+  const breakEven = custo/(1-i);
+  // custo máximo de produção que cabe na verba
+  const custoMax = S.fiscal.verba>0 ? verba/(1+t+i) : sub;
+  const corteR = Math.max(0, sub - custoMax);
+  const corteP = sub>0 ? corteR/sub : 0;
+  return {sub,totalIdeal,taxaVal,impVal,descVal,custo,verba,impReal,lucro,margem,breakEven,custoMax,corteR,corteP,t,i,d};
+}
+
+function healthState(){
+  const k=calc();
+  if(k.lucro<=0) return {key:"red",emoji:"🔴",text:"PREJUÍZO — AÇÃO IMEDIATA NECESSÁRIA",sub:"O projeto perde dinheiro nessa verba. Corte de custo é obrigatório."};
+  if(k.margem < k.t) return {key:"yellow",emoji:"🟡",text:"NO LIMITE — MARGEM ABAIXO DA META",sub:"Dá lucro, mas a margem está abaixo da meta. Sustentável, sem gordura para imprevisto."};
+  return {key:"green",emoji:"🟢",text:"SAUDÁVEL — MARGEM DENTRO DA META",sub:"Margem real atinge ou supera a meta de taxa da produtora."};
+}
+
+/* ============ RENDER: TABS ============ */
+const TABS=[
+  {id:"inicio",label:"Início"},
+  {id:"dados",label:"Dados"},
+  {id:"rosto",label:"Folha de Rosto"},
+  {id:"analise",label:"Análise de Custos"},
+  {id:"saude",label:"Saúde do Projeto"},
+  {id:"ajuste",label:"Ajuste de Escopo"},
+];
+let activeTab = "inicio";
+function renderTabs(){
+  const h=healthState();
+  document.getElementById('tabs').innerHTML = TABS.map(t=>{
+    let dot='';
+    if(t.id==='saude'){const c=h.key==='green'?'var(--green)':h.key==='yellow'?'var(--yellow)':'var(--red)';dot=`<span class="dot" style="background:${c}"></span>`;}
+    return `<button class="tab ${t.id===activeTab?'active':''}" onclick="go('${t.id}')">${t.label}${dot}</button>`;
+  }).join('');
+}
+function go(id){
+  activeTab=id;
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.getElementById('v-'+id).classList.add('active');
+  renderTabs();
+  renderAll();
+  window.scrollTo(0,0);
+}
+
+/* ============ RENDER: INÍCIO ============ */
+function renderInicio(){
+  document.getElementById('v-inicio').innerHTML=`
+  <div class="hero">
+    <h2>Sistema de Orçamento</h2>
+    <p>Preço de produção calculado para a Stage nunca ficar no prejuízo</p>
+  </div>
+  <div class="rule">📌 <b>Regra de ouro:</b> você só preenche a aba <b>Dados</b>. Todas as outras leem dela automaticamente e calculam em tempo real — nunca edite valores nas outras.</div>
+
+  <div class="panel">
+    <div class="panel-title">Como usar — passo a passo</div>
+    <div class="steps">
+      <div class="step"><div class="num">1</div><div class="stext">Preencha os itens na aba <b>Dados</b>: quantidade, valor cobrado e — importante — o <b>custo real</b> de cada item (inclusive horas do Spina e da Lua). Configure taxa, impostos e a verba do cliente.</div></div>
+      <div class="step"><div class="num">2</div><div class="stext">Abra <b>Saúde do Projeto</b>. Mostra na hora se está 🟢 verde, 🟡 amarelo ou 🔴 vermelho e quanto de lucro real sobra.</div></div>
+      <div class="step"><div class="num">3</div><div class="stext">Se precisar caber na verba, veja em <b>Análise de Custos</b> quais categorias têm mais margem (gordura) para cortar sem dor.</div></div>
+      <div class="step"><div class="num">4</div><div class="stext">Documente os cortes em <b>Ajuste de Escopo</b> (original × ajustado). Gera o texto pronto de justificativa para o cliente.</div></div>
+      <div class="step"><div class="num">5</div><div class="stext">Reflita os cortes de volta na aba <b>Dados</b> (ex: Fotos de 30 → 15). A Saúde atualiza sozinha. Pare em 🟢 ou no mínimo 🟡.</div></div>
+      <div class="step"><div class="num">6</div><div class="stext">Imprima a <b>Folha de Rosto</b> para o cliente — já com o escopo final. As demais abas são internas.</div></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-title">Semáforo de saúde</div>
+    <div class="legend-item green"><div class="lbadge">🟢 Saudável</div><div class="ldesc">Margem atinge ou supera a meta (taxa da produtora). Pode fechar tranquilo.</div></div>
+    <div class="legend-item yellow"><div class="lbadge">🟡 No limite</div><div class="ldesc">Dá lucro, mas a margem está abaixo da meta. Sustentável — mas sem gordura para imprevisto. Decisão consciente.</div></div>
+    <div class="legend-item red"><div class="lbadge">🔴 Prejuízo</div><div class="ldesc">Lucro real igual ou abaixo de zero. Não feche sem cortar custo. Aqui a Stage perde dinheiro de verdade.</div></div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-title">Dois princípios que protegem a margem</div>
+    <div class="princ">
+      <div class="pcard blue"><b>Corte escopo, não margem</b>Para caber na verba, reduza entregas, equipe ou diárias — nunca a sua taxa. Margem cortada não volta.</div>
+      <div class="pcard amber"><b>Custo real completo</b>Inclua sempre as horas dos sócios no custo. Se o dono não se paga, a empresa parece lucrativa enquanto vocês trabalham de graça.</div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-title">Como o preço é calculado</div>
+    <div class="formula-box">
+      <div class="f">Total = Custo de Produção × (1 + Taxa% + Impostos%)</div>
+      <div class="ex">Ex: R$ 58.260 × (1 + 30% + 15%) = R$ 84.477</div>
+    </div>
+  </div>`;
+}
+
+/* ============ RENDER: DADOS ============ */
+function renderDados(){
+  const cats = CATS.map(cat=>{
+    const open = S.openCats[cat.id];
+    const tot = catTotal(cat.id);
+    const rows = (S.items[cat.id]||[]).map((it,idx)=>`
+      <tr class="irow">
+        <td><input class="txt" value="${esc(it.d)}" oninput="upd('${cat.id}',${idx},'d',this.value)"></td>
+        <td style="width:58px"><input class="num" type="number" value="${it.q}" oninput="upd('${cat.id}',${idx},'q',this.value)"></td>
+        <td style="width:104px"><input class="money" type="number" value="${it.v}" oninput="upd('${cat.id}',${idx},'v',this.value)"></td>
+        <td style="width:104px"><input class="money" type="number" value="${it.c}" oninput="upd('${cat.id}',${idx},'c',this.value)" title="Custo real unitário (por unidade)"></td>
+        <td class="total" id="rowtot-${cat.id}-${idx}">${fmt(it.q*it.v)}</td>
+        <td style="width:120px"><input class="txt" value="${esc(it.i)}" oninput="upd('${cat.id}',${idx},'i',this.value)" placeholder="obs"></td>
+        <td style="width:28px"><button class="del" onclick="delItem('${cat.id}',${idx})">✕</button></td>
+      </tr>`).join('');
+    return `
+    <div class="cat ${open?'open':''}">
+      <div class="cat-head" onclick="toggleCat('${cat.id}')">
+        <span class="label"><span class="icon">${cat.icon}</span>${cat.label}</span>
+        <span><span class="cat-total ${tot?'':'zero'}" id="tot-${cat.id}">${fmt(tot)}</span> &nbsp;<span class="chev">▼</span></span>
+      </div>
+      <div class="cat-body">
+        <table>
+          <tr class="ihead"><th>Descrição</th><th>Qtd</th><th>Valor cobrado</th><th>Custo real unit.</th><th style="text-align:right">Total</th><th>Obs</th><th></th></tr>
+          ${rows||''}
+        </table>
+        <button class="add-item" onclick="addItem('${cat.id}')">+ Adicionar item</button>
+      </div>
+    </div>`;
+  }).join('');
+
+  const f=S.fiscal, k=calc();
+  document.getElementById('v-dados').innerHTML=`
+  <div class="panel">
+    <div class="panel-title">Itens do orçamento — valores unitários. Preencha o custo real unitário (não o cobrado) na coluna Custo real unit.</div>
+    ${cats}
+  </div>
+
+  <div class="panel">
+    <div class="panel-title">Configuração fiscal</div>
+    <div class="cfg-grid">
+      <div class="cfg-field"><label>Taxa da Produtora <span class="hint">(% sobre produção)</span></label><input type="number" value="${f.taxa}" oninput="updFiscal('taxa',this.value)"></div>
+      <div class="cfg-field"><label>Impostos / NF <span class="hint">(% sobre produção)</span></label><input type="number" value="${f.imposto}" oninput="updFiscal('imposto',this.value)"></div>
+      <div class="cfg-field"><label>Desconto <span class="hint">(% — 0 se não houver)</span></label><input type="number" value="${f.desconto}" oninput="updFiscal('desconto',this.value)"></div>
+      <div class="cfg-field"><label>Verba Negociada <span class="hint">(R$ — 0 = usar total ideal)</span></label><input type="number" value="${f.verba}" oninput="updFiscal('verba',this.value)"></div>
+    </div>
+  </div>
+
+  <div class="panel" id="resultPanel">${resultPanelHTML()}</div>`;
+}
+
+function resultPanelHTML(){
+  const k=calc(), f=S.fiscal;
+  return `<div class="panel-title">Resultado</div>
+    <div class="res-row"><span class="rlabel">Subtotal de produção</span><span class="rval">${fmt(k.sub)}</span></div>
+    <div class="res-row"><span class="rlabel sub">↳ Taxa da Produtora (${f.taxa}%)</span><span class="rval">${fmt(k.taxaVal)}</span></div>
+    <div class="res-row"><span class="rlabel sub">↳ Impostos / NF (${f.imposto}%)</span><span class="rval">${fmt(k.impVal)}</span></div>
+    ${f.desconto>0?`<div class="res-row"><span class="rlabel sub">↳ Desconto (${f.desconto}%)</span><span class="rval v-red">−${fmt(k.descVal)}</span></div>`:''}
+    <div class="res-big"><div class="rb-label">Total a cobrar ao cliente</div><div class="rb-val">${fmt(k.totalIdeal)}</div></div>
+    <div class="res-row" style="margin-top:14px"><span class="rlabel" style="color:var(--yellow)">Custo operacional real (Stage)</span><span class="rval v-yellow">${fmt(k.custo)}</span></div>
+    <div class="res-big lucro" style="border-color:${k.lucro>0?'#2a5c34':'#5c2620'}"><div class="rb-label">Lucro real ${S.fiscal.verba>0?'(sobre a verba de '+fmt(k.verba)+')':''}</div><div class="rb-val ${k.lucro>0?'v-green':'v-red'}">${fmt(k.lucro)}</div></div>`;
+}
+
+function esc(s){return String(s||'').replace(/"/g,'&quot;').replace(/</g,'&lt;');}
+
+/* ============ RENDER: FOLHA DE ROSTO ============ */
+function renderRosto(){
+  const k=calc();
+  const rows = FR_ORDER.map(id=>{
+    const v=catTotal(id);
+    return `<tr><td>${CAT_LABEL_FR[id]}</td><td class="r">${v>0?fmt(v):'—'}</td></tr>`;
+  }).join('');
+  document.getElementById('v-rosto').innerHTML=`
+  <div class="btn-row no-print">
+    <button class="btn" onclick="window.print()">Imprimir / Salvar PDF</button>
+    <span style="font-size:11px;color:var(--txt-dim);align-self:center">A impressão mostra só a folha de rosto (sem a análise interna abaixo)</span>
+  </div>
+  <div class="fr">
+    <div class="fr-head">
+      <div class="fr-brand">STAGE FILMS</div>
+      <div class="fr-sub">Proposta Comercial · Orçamento de Produção</div>
+    </div>
+    <div class="fr-info">
+      <div class="fr-irow"><span class="fr-ilabel">Projeto</span><span class="fr-ival">${esc(S.projName)}</span></div>
+      <div class="fr-irow"><span class="fr-ilabel">Cliente</span><span class="fr-ival">${esc(S.cliente)}</span></div>
+    </div>
+    <div class="fr-body">
+      <table class="fr-table">
+        <tr><th>Item</th><th class="r">Valor</th></tr>
+        ${rows}
+        <tr class="sub"><td>Subtotal</td><td class="r">${fmt(k.sub)}</td></tr>
+        <tr class="fiscal"><td>Taxa da Produtora <b style="color:#1f4e79">(${S.fiscal.taxa}%)</b></td><td class="r"></td></tr>
+        <tr class="fiscal"><td>Impostos / NF <b style="color:#1f4e79">(${S.fiscal.imposto}%)</b></td><td class="r"></td></tr>
+        ${S.fiscal.desconto>0?`<tr class="fiscal"><td>Desconto <b style="color:#1f4e79">(${S.fiscal.desconto}%)</b></td><td class="r"></td></tr>`:''}
+        <tr class="total"><td>TOTAL</td><td class="r">${fmt(k.totalIdeal)}</td></tr>
+      </table>
+    </div>
+    <div class="fr-obs">
+      <h4>Observações</h4>
+      <ul>
+        <li>Valores calculados conforme rate card vigente.</li>
+        <li>Serviços de terceiros contratados e coordenados pela produtora, cobrados via NF.</li>
+        <li>Cliente fornece materiais, briefing e guias de marca para execução.</li>
+        <li>Todas as peças passam por aprovação do cliente antes da finalização.</li>
+        <li>Alterações de escopo geram proposta complementar.</li>
+        <li>Pagamento: 30 dias da emissão de NF. Outros prazos sujeitos a reajuste.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="panel fr-internal" style="margin-top:16px">
+    <div class="panel-title">▸ Análise de verba — uso interno (não imprime)</div>
+    <div class="res-row"><span class="rlabel">Total ideal calculado</span><span class="rval">${fmt(k.totalIdeal)}</span></div>
+    <div class="res-row"><span class="rlabel">Verba do cliente</span><span class="rval">${fmt(S.fiscal.verba)}</span></div>
+    <div class="res-row"><span class="rlabel">Diferença (ideal − verba)</span><span class="rval v-yellow">${fmt(k.totalIdeal-S.fiscal.verba)}</span></div>
+    <div class="res-row"><span class="rlabel">Custo máx. de produção que cabe na verba</span><span class="rval">${fmt(k.custoMax)}</span></div>
+    <div class="res-row"><span class="rlabel">Corte necessário na produção</span><span class="rval ${k.corteR>0?'v-yellow':'v-green'}">${fmt(k.corteR)} (${pct(k.corteP)})</span></div>
+  </div>`;
+}
+
+/* ============ RENDER: ANÁLISE DE CUSTOS ============ */
+function renderAnalise(){
+  const k=calc();
+  const rows = CATS.map(c=>{
+    const cob=catTotal(c.id), cus=catCusto(c.id), dif=cob-cus;
+    const marg=cob>0?dif/cob:0, peso=k.sub>0?cob/k.sub:0;
+    if(cob===0 && cus===0) return '';
+    return `<tr>
+      <td>${c.icon} ${c.label}</td>
+      <td>${fmt(cob)}</td><td style="color:var(--yellow)">${fmt(cus)}</td>
+      <td class="v-green" style="font-weight:600">${fmt(dif)}</td>
+      <td class="v-green">${pct(marg)}</td>
+      <td style="color:var(--txt-dim)">${pct(peso)}</td>
+    </tr>`;
+  }).join('');
+  document.getElementById('v-analise').innerHTML=`
+  <div class="panel">
+    <div class="panel-title">Comparativo: valor cobrado × custo real — onde está a gordura para cortar</div>
+    <table class="an-table">
+      <tr><th>Categoria</th><th>Cobrado ao cliente</th><th>Custo real Stage</th><th>Margem (R$)</th><th>Margem %</th><th>Peso no total</th></tr>
+      ${rows}
+      <tr class="total-row"><td>TOTAL</td><td>${fmt(k.sub)}</td><td>${fmt(k.custo)}</td><td>${fmt(k.sub-k.custo)}</td><td>${pct(k.sub>0?(k.sub-k.custo)/k.sub:0)}</td><td>100%</td></tr>
+    </table>
+  </div>
+
+  <div class="panel">
+    <div class="panel-title">Composição do total cobrado ao cliente</div>
+    <div class="res-row"><span class="rlabel">Subtotal de produção</span><span class="rval">${fmt(k.sub)}</span></div>
+    <div class="res-row"><span class="rlabel">Taxa da Produtora (${S.fiscal.taxa}%)</span><span class="rval">${fmt(k.taxaVal)}</span></div>
+    <div class="res-row"><span class="rlabel">Impostos / NF (${S.fiscal.imposto}%)</span><span class="rval">${fmt(k.impVal)}</span></div>
+    ${S.fiscal.desconto>0?`<div class="res-row"><span class="rlabel">Desconto (${S.fiscal.desconto}%)</span><span class="rval v-red">−${fmt(k.descVal)}</span></div>`:''}
+    <div class="res-row"><span class="rlabel" style="color:var(--gold)">Total a cobrar (ideal)</span><span class="rval" style="color:var(--gold)">${fmt(k.totalIdeal)}</span></div>
+    <div class="res-row"><span class="rlabel">Verba negociada</span><span class="rval">${fmt(S.fiscal.verba)}</span></div>
+  </div>`;
+}
+
+/* ============ RENDER: SAÚDE ============ */
+function renderSaude(){
+  const k=calc(), h=healthState();
+  const kpis=[
+    ["Verba do cliente",fmt(k.verba),''],
+    ["Subtotal de produção",fmt(k.sub),''],
+    ["Custo real Stage",fmt(k.custo),''],
+    ["Total ideal (sem corte)",fmt(k.totalIdeal),''],
+    ["Custo máx. na verba",fmt(k.custoMax),''],
+    ["Corte necessário",fmt(k.corteR),k.corteR>0?'v-yellow':'v-green'],
+    ["Corte %",pct(k.corteP),k.corteR>0?'v-yellow':'v-green'],
+    ["Ponto de equilíbrio",fmt(k.breakEven),''],
+    ["Lucro real projetado",fmt(k.lucro),h.key==='green'?'v-green':h.key==='yellow'?'v-yellow':'v-red'],
+    ["Margem real",pct(k.margem),h.key==='green'?'v-green':h.key==='yellow'?'v-yellow':'v-red'],
+    ["Margem-alvo (taxa)",pct(k.t),''],
+  ];
+  document.getElementById('v-saude').innerHTML=`
+  <div class="status ${h.key}">
+    <span class="s-emoji">${h.emoji}</span>
+    <div class="s-text">${h.text}</div>
+    <div class="s-sub">${h.sub}</div>
+  </div>
+  <div class="panel">
+    <div class="panel-title">Indicadores financeiros</div>
+    <div class="kpi-grid">
+      ${kpis.map(([l,v,c])=>`<div class="kpi"><div class="k-label">${l}</div><div class="k-val ${c}">${v}</div></div>`).join('')}
+    </div>
+  </div>
+  <div class="callout">
+    <b>Lembre:</b> o ponto de equilíbrio (lucro zero) é ${fmt(k.breakEven)}. Acima disso, a Stage ganha dinheiro — só ganha mais ou menos. O corte de ${fmt(k.corteR)} serve para <b>restaurar a margem de ${S.fiscal.taxa}%</b>, não para evitar prejuízo.
+  </div>`;
+}
+
+/* ============ RENDER: AJUSTE DE ESCOPO ============ */
+function renderAjuste(){
+  const k=calc();
+  const totalEcon = S.ajustes.reduce((s,a)=>s+(num(a.vo)-num(a.va)),0);
+  const meta = k.corteR;
+  const ok = totalEcon>=meta;
+  const rows=S.ajustes.map((a,idx)=>`
+    <tr>
+      <td style="width:120px"><input class="txt" value="${esc(a.cat)}" oninput="updAj(${idx},'cat',this.value)"></td>
+      <td><input class="txt" value="${esc(a.item)}" oninput="updAj(${idx},'item',this.value)"></td>
+      <td style="width:50px"><input type="number" value="${a.qo}" oninput="updAj(${idx},'qo',this.value)"></td>
+      <td style="width:90px"><input type="number" value="${a.vo}" oninput="updAj(${idx},'vo',this.value)"></td>
+      <td style="width:50px"><input type="number" value="${a.qa}" oninput="updAj(${idx},'qa',this.value)"></td>
+      <td style="width:90px"><input type="number" value="${a.va}" oninput="updAj(${idx},'va',this.value)"></td>
+      <td class="econ" style="width:90px">${fmt(num(a.vo)-num(a.va))}</td>
+      <td style="width:28px"><button class="del" onclick="delAj(${idx})" style="background:none;border:none;color:#444;cursor:pointer">✕</button></td>
+    </tr>`).join('');
+
+  // client text
+  let ctext=`Para adequar o orçamento à verba aprovada de ${fmt(S.fiscal.verba)}, realizamos os seguintes ajustes de escopo em relação à proposta original (${fmt(k.totalIdeal)}):\n\n`;
+  S.ajustes.forEach(a=>{if(a.item)ctext+=`• ${a.item}: de ${a.qo} para ${a.qa} — ${a.obs}\n`;});
+  ctext+=`\nEsses ajustes resultam em uma redução de ${fmt(totalEcon)} no custo de produção, refletindo proporcionalmente na taxa e nos impostos, chegando ao valor final de ${fmt(S.fiscal.verba)}.`;
+
+  document.getElementById('v-ajuste').innerHTML=`
+  <div class="panel">
+    <div class="panel-title">Ajuste de escopo — original × adequado à verba</div>
+    <div class="kpi-grid" style="margin-bottom:16px">
+      <div class="kpi"><div class="k-label">Orçamento original</div><div class="k-val">${fmt(k.totalIdeal)}</div></div>
+      <div class="kpi"><div class="k-label">Verba aprovada</div><div class="k-val" style="color:var(--blue-in)">${fmt(S.fiscal.verba)}</div></div>
+      <div class="kpi"><div class="k-label">Meta de corte na produção</div><div class="k-val v-yellow">${fmt(meta)}</div></div>
+    </div>
+    <div class="callout">⚠ Taxa (${S.fiscal.taxa}%) e impostos (${S.fiscal.imposto}%) são calculados sobre o custo de produção. Reduzindo <b>${fmt(meta)}</b> na produção, taxa e impostos caem proporcionalmente e o total chega aos ${fmt(S.fiscal.verba)} aprovados.</div>
+    <table class="aj-table">
+      <tr><th>Categoria</th><th>Item / justificativa</th><th>Qtd orig.</th><th>Valor orig.</th><th>Qtd ajust.</th><th>Valor ajust.</th><th style="text-align:right">Economia</th><th></th></tr>
+      ${rows}
+    </table>
+    <button class="add-item" onclick="addAj()">+ Adicionar linha de ajuste</button>
+    <div class="res-row" style="margin-top:14px"><span class="rlabel" style="color:var(--gold)">Total economizado na produção</span><span class="rval" style="color:var(--gold);font-size:16px">${fmt(totalEcon)}</span></div>
+    <div class="status ${ok?'green':'yellow'}" style="margin-top:12px;padding:14px">
+      <div class="s-text" style="font-size:14px">${ok?'✅ Economia suficiente — escopo cabe na verba':'⚠️ Faltam '+fmt(meta-totalEcon)+' para atingir a meta'}</div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-title">Texto para enviar ao cliente</div>
+    <div class="client-text" id="clientText">${esc(ctext)}</div>
+    <button class="btn btn-ghost" style="margin-top:12px" onclick="copyText()">Copiar texto</button>
+  </div>`;
+}
+
+function copyText(){
+  const t=document.getElementById('clientText').innerText;
+  navigator.clipboard.writeText(t).then(()=>{
+    event.target.textContent='✓ Copiado';
+    setTimeout(()=>event.target.textContent='Copiar texto',1500);
+  });
+}
+
+/* ============ HANDLERS ============ */
+function renderAll(){
+  if(activeTab==='inicio')renderInicio();
+  if(activeTab==='dados')renderDados();
+  if(activeTab==='rosto')renderRosto();
+  if(activeTab==='analise')renderAnalise();
+  if(activeTab==='saude')renderSaude();
+  if(activeTab==='ajuste')renderAjuste();
+  renderTabs();
+}
+function upd(cat,idx,field,val){
+  const it=S.items[cat][idx];
+  it[field] = (field==='q'||field==='v'||field==='c') ? num(val) : val;
+  save();
+  // live-update the row total + category total + tab dot, without re-rendering (keeps input focus)
+  liveUpdateDados();
+}
+function liveUpdateDados(){
+  // update each category total label
+  CATS.forEach((c)=>{
+    const el=document.querySelector(`#tot-${c.id}`);
+    const t=catTotal(c.id);
+    if(el){el.textContent=fmt(t);el.className='cat-total '+(t?'':'zero');}
+  });
+  // update each row total
+  CATS.forEach((c)=>{
+    (S.items[c.id]||[]).forEach((it,idx)=>{
+      const el=document.querySelector(`#rowtot-${c.id}-${idx}`);
+      if(el)el.textContent=fmt(it.q*it.v);
+    });
+  });
+  // update result panel
+  refreshResultPanel();
+  renderTabs();
+}
+function refreshResultPanel(){
+  const el=document.getElementById('resultPanel');
+  if(el)el.innerHTML=resultPanelHTML();
+}
+function updFiscal(field,val){
+  S.fiscal[field]=num(val);
+  save();
+  refreshResultPanel();
+  renderTabs();
+}
+function toggleCat(id){S.openCats[id]=!S.openCats[id];save();renderDados();}
+function addItem(cat){if(!S.items[cat])S.items[cat]=[];S.items[cat].push({d:"",q:1,v:0,c:0,i:""});S.openCats[cat]=true;save();renderDados();}
+function delItem(cat,idx){S.items[cat].splice(idx,1);save();renderDados();}
+function updAj(idx,field,val){S.ajustes[idx][field]=(['qo','vo','qa','va'].includes(field))?num(val):val;save();renderAjuste();}
+function addAj(){S.ajustes.push({cat:"",item:"",qo:0,vo:0,qa:0,va:0,obs:""});save();renderAjuste();}
+function delAj(idx){S.ajustes.splice(idx,1);save();renderAjuste();}
+
+document.getElementById('projName').addEventListener('input',e=>{S.projName=e.target.value;save();});
+
+/* ============ INIT ============ */
+go('inicio');
+</script>
+</body>
+</html>

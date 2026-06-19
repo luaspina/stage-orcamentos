@@ -186,6 +186,7 @@
     .fr-internal{display:none!important}
   }
 </style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 <div class="app">
@@ -214,6 +215,18 @@
 </div>
 
 <script>
+/* ============ CONFIG SUPABASE (nuvem compartilhada) ============ */
+/* Preencha com os dados do seu projeto Supabase.
+   Enquanto estiver vazio, o app usa só o navegador (local). */
+const SUPABASE_URL  = "https://lvhokpuljxotfhlxzfai.supabase.co";
+const SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx2aG9rcHVsanhvdGZobHh6ZmFpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE4ODg5MTIsImV4cCI6MjA5NzQ2NDkxMn0.cabQcx1hJuB0FLTSOysXgk3OgDlE3ACUeE4o-P5QBSs";
+
+let sb = null;
+const cloudOn = () => SUPABASE_URL.startsWith("http") && SUPABASE_ANON.length > 20;
+if(cloudOn() && window.supabase){
+  try{ sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON); }catch(e){ console.error("Supabase init falhou", e); }
+}
+
 /* ============ DATA MODEL ============ */
 const CATS = [
   {id:"pre",label:"Pré-produção",icon:"📋"},
@@ -296,19 +309,63 @@ function save(){
 }
 
 
-/* ============ HISTÓRICO (lista de orçamentos salvos) ============ */
-function loadHist(){
+/* ============ HISTÓRICO (compartilhado via Supabase, com fallback local) ============ */
+let histCache = [];      // cópia em memória usada pela tela
+let histLoaded = false;
+let lastCloudError = null;
+
+function loadHistLocal(){
   try{const raw=localStorage.getItem(HKEY); if(raw) return JSON.parse(raw);}catch(e){}
   return [];
 }
-function saveHist(list){
+function saveHistLocal(list){
   try{localStorage.setItem(HKEY,JSON.stringify(list));}catch(e){}
 }
+
+// Carrega do banco (ou local) e atualiza a tela
+async function fetchHist(){
+  if(cloudOn() && sb){
+    try{
+      const {data,error} = await sb.from('orcamentos').select('*').order('ts',{ascending:false});
+      if(error) throw error;
+      histCache = (data||[]).map(r=>({
+        id:r.id, nome:r.nome, cliente:r.cliente, data:r.data, ts:r.ts,
+        total:r.total, verba:r.verba, lucro:r.lucro, status:r.status, estado:r.estado
+      }));
+      histLoaded = true;
+      saveHistLocal(histCache); // espelho local p/ offline
+      if(activeTab==='historico') renderHistorico();
+      return;
+    }catch(e){
+      lastCloudError = (e&&e.message) ? e.message : JSON.stringify(e);
+      console.error("Falha ao buscar na nuvem, usando local:", lastCloudError);
+    }
+  }
+  histCache = loadHistLocal();
+  histLoaded = true;
+  if(activeTab==='historico') renderHistorico();
+}
+
+async function testarConexao(){
+  lastCloudError = null;
+  if(!cloudOn()){ lastCloudError = "Chaves do Supabase não configuradas no código."; renderHistorico(); return; }
+  if(!sb){ lastCloudError = "Cliente Supabase não inicializou (biblioteca não carregou)."; renderHistorico(); return; }
+  try{
+    const {data,error} = await sb.from('orcamentos').select('id').limit(1);
+    if(error) throw error;
+    lastCloudError = null;
+    flashSync("✓ conexão OK — "+(data?data.length:0)+" registro(s) encontrado(s)");
+  }catch(e){
+    lastCloudError = (e&&e.message) ? e.message : JSON.stringify(e);
+  }
+  renderHistorico();
+}
+
 function snapshotCurrent(){
-  // deep copy of the current working state
   const copy = JSON.parse(JSON.stringify(S));
   const k = calc();
   const h = healthState();
+  const usaVerba = S.fiscal.verba>0 && S.fiscal.verba < k.totalCalc;
   return {
     id: "p"+Date.now(),
     nome: S.projName || "Sem nome",
@@ -317,53 +374,81 @@ function snapshotCurrent(){
     ts: Date.now(),
     total: k.totalCalc,
     verba: S.fiscal.verba,
-    lucro: (S.fiscal.verba>0 && S.fiscal.verba<k.totalCalc) ? k.lucroNaVerba : k.lucro,
+    lucro: usaVerba ? k.lucroNaVerba : k.lucro,
     status: h.key,
     estado: copy
   };
 }
-function salvarNoHistorico(){
-  const list = loadHist();
+
+async function salvarNoHistorico(){
   const snap = snapshotCurrent();
-  // se já existe um projeto com mesmo nome salvo hoje, pergunta se sobrescreve
-  const dup = list.find(p=>p.nome===snap.nome);
+  const dup = histCache.find(p=>p.nome===snap.nome);
   if(dup){
     if(!confirm(`Já existe "${snap.nome}" no histórico. Deseja salvar como uma nova versão?\n\n(OK = nova versão · Cancelar = não salvar)`)){
       return;
     }
-    snap.nome = snap.nome + " (v" + (list.filter(p=>p.nome.startsWith(dup.nome)).length+1) + ")";
+    snap.nome = snap.nome + " (v" + (histCache.filter(p=>p.nome.startsWith(dup.nome)).length+1) + ")";
   }
-  list.unshift(snap);
-  saveHist(list);
+  // otimista: já mostra na tela
+  histCache.unshift(snap);
+  saveHistLocal(histCache);
   renderHistorico();
+
+  if(cloudOn() && sb){
+    try{
+      const {error} = await sb.from('orcamentos').insert([snap]);
+      if(error) throw error;
+      flashSync("✓ salvo na nuvem");
+    }catch(e){
+      lastCloudError = (e&&e.message) ? e.message : JSON.stringify(e);
+      console.error("Erro ao salvar na nuvem:", lastCloudError);
+      flashSync("⚠ salvo só localmente (sem conexão)");
+      renderHistorico();
+    }
+  }else{
+    flashSync("✓ salvo (local)");
+  }
 }
+
 function abrirDoHistorico(id){
-  const list = loadHist();
-  const p = list.find(x=>x.id===id);
+  const p = histCache.find(x=>x.id===id);
   if(!p) return;
   if(!confirm(`Abrir "${p.nome}"? As alterações não salvas no orçamento atual serão perdidas.`)) return;
   S = JSON.parse(JSON.stringify(p.estado));
+  S = migrate(S);
   save();
-  document.getElementById('projName').value = S.projName;
+  const pn=document.getElementById('projName'); if(pn) pn.value = S.projName;
   go('dados');
 }
-function apagarDoHistorico(id){
-  const list = loadHist();
-  const p = list.find(x=>x.id===id);
+
+async function apagarDoHistorico(id){
+  const p = histCache.find(x=>x.id===id);
   if(!p) return;
-  if(!confirm(`Apagar "${p.nome}" do histórico? Esta ação não pode ser desfeita.`)) return;
-  saveHist(list.filter(x=>x.id!==id));
+  if(!confirm(`Apagar "${p.nome}" do histórico? Isso remove para você e seu par. Não pode ser desfeito.`)) return;
+  histCache = histCache.filter(x=>x.id!==id);
+  saveHistLocal(histCache);
   renderHistorico();
+  if(cloudOn() && sb){
+    try{ await sb.from('orcamentos').delete().eq('id',id); flashSync("✓ removido da nuvem"); }
+    catch(e){ console.error("Erro ao apagar na nuvem:", (e&&e.message)||JSON.stringify(e)); flashSync("⚠ removido só localmente"); }
+  }
 }
+
 function novoOrcamento(){
   if(!confirm("Começar um orçamento novo em branco? Salve o atual no histórico antes, se quiser guardá-lo.")) return;
   S = JSON.parse(JSON.stringify(DEFAULTS));
-  S.projName="Novo projeto"; S.cliente=""; 
+  S.projName="Novo projeto"; S.cliente="";
   S.items={pre:[],locacao:[],producao:[],tecnica:[],equip:[],logistica:[],elenco:[],pos:[],reembolsos:[]};
   S.ajustes=[];
   save();
-  document.getElementById('projName').value = S.projName;
+  const pn=document.getElementById('projName'); if(pn) pn.value = S.projName;
   go('dados');
+}
+
+let flashTimer=null;
+function flashSync(msg){
+  const h=document.getElementById('saveHint');
+  if(h){h.textContent=msg; clearTimeout(flashTimer); flashTimer=setTimeout(()=>h.textContent='',2500);}
 }
 
 /* ============ HELPERS ============ */
@@ -462,6 +547,7 @@ function go(id){
   renderTabs();
   renderAll();
   window.scrollTo(0,0);
+  if(id==='historico' && !histLoaded){ fetchHist(); }
 }
 
 /* ============ RENDER: INÍCIO ============ */
@@ -784,7 +870,7 @@ function copyText(){
 
 /* ============ RENDER: HISTÓRICO ============ */
 function renderHistorico(){
-  const list = loadHist();
+  const list = histCache;
   const dotColor = k => k==='green'?'var(--green)':k==='yellow'?'var(--yellow)':'var(--red)';
   const statusTxt = k => k==='green'?'Saudável':k==='yellow'?'Apertado':'Prejuízo';
   const rows = list.map(p=>`
@@ -809,7 +895,9 @@ function renderHistorico(){
     <button class="btn btn-ghost" onclick="novoOrcamento()">+ Novo orçamento em branco</button>
   </div>
   <div class="panel">
-    <div class="panel-title">Histórico de orçamentos salvos${list.length?' ('+list.length+')':''}</div>
+    <div class="panel-title">Histórico de orçamentos salvos${list.length?' ('+list.length+')':''} ${cloudOn()?'· <span style="color:var(--green)">☁ compartilhado na nuvem</span>':'· <span style="color:var(--txt-dim)">só neste navegador</span>'}</div>
+    ${lastCloudError?`<div class="callout" style="border-color:#5c2620;background:#1f0f0d;color:#e06a5e;margin-bottom:14px">⚠ <b>Erro de conexão com a nuvem:</b> ${esc(lastCloudError)}</div>`:''}
+    <button class="btn btn-ghost" style="padding:6px 12px;font-size:10px;margin-bottom:14px" onclick="testarConexao()">🔧 Testar conexão com a nuvem</button>
     ${list.length===0
       ? '<div style="text-align:center;padding:40px 20px;color:var(--txt-dim);font-size:13px">Nenhum orçamento salvo ainda.<br><br>Preencha um orçamento na aba Dados e clique em <b style="color:var(--gold)">Salvar orçamento atual</b> para guardá-lo aqui.</div>'
       : `<table class="an-table">
@@ -881,6 +969,7 @@ document.getElementById('projName').addEventListener('input',e=>{S.projName=e.ta
 
 /* ============ INIT ============ */
 go('inicio');
+fetchHist(); // carrega histórico compartilhado em segundo plano
 </script>
 </body>
 </html>

@@ -45,6 +45,8 @@
   .cat-body{display:none;padding:0 16px 14px;background:#0a0a0a}
   .cat.open .cat-body{display:block}
   .cat.open .cat-head{background:var(--panel2)}
+  .cat-act{background:none;border:none;color:#777;cursor:pointer;font-size:13px;padding:2px 4px;border-radius:4px;line-height:1}
+  .cat-act:hover{background:rgba(255,255,255,.08);color:var(--gold)}
   .chev{color:#555;font-size:10px;transition:transform .2s}
   .cat.open .chev{transform:rotate(180deg)}
   /* Item table */
@@ -228,7 +230,7 @@ if(cloudOn() && window.supabase){
 }
 
 /* ============ DATA MODEL ============ */
-const CATS = [
+const CATS_BASE = [
   {id:"pre",label:"Pré-produção",icon:"📋"},
   {id:"locacao",label:"Locação / Cenografia",icon:"📍"},
   {id:"producao",label:"Produção — Dia 1",icon:"🎬"},
@@ -239,6 +241,8 @@ const CATS = [
   {id:"pos",label:"Pós-produção",icon:"✂️"},
   {id:"reembolsos",label:"Reembolsos",icon:"🧾"},
 ];
+// Lista de categorias ativa: usa S.cats (que pode ter categorias duplicadas) ou a base
+function cats(){ return (S.cats && S.cats.length) ? S.cats : CATS_BASE; }
 const CAT_LABEL_FR = {
   pre:"1.  Pré-produção", producao:"2.  Produção", locacao:"3.  Locação / Cenografia",
   tecnica:"4.  Equipes Técnicas / Diária de Filmagem", equip:"5.  Equipamentos / Pré-light",
@@ -250,21 +254,91 @@ const FR_ORDER = ["pre","producao","locacao","tecnica","equip","logistica","elen
 const DEFAULTS = {
   projName:"Ford Ranger Limited — 2 Diárias",
   cliente:"Ford Brasil", data:"", responsavel:"Stage Films",
-  fiscal:{taxa:30, imposto:15, desconto:0, verba:65000, reservaPct:0},
+  fiscal:{taxa:30, imposto:15, desconto:0, verba:65000, fecharEm:0},
   items:{
-    pre:[{d:"Dir. Produção",q:1,vi:3000,v:3000,i:"Lua"},{d:"Pré-Operacional",q:1,vi:1000,v:1000,i:"Nayla"}],
-    locacao:[{d:"Locação",q:1,vi:3500,v:3500,i:"Fazenda Embauva"}],
-    producao:[{d:"Detailler",q:2,vi:800,v:800,i:"Paulo Cera"}],
+    pre:[
+      {d:"Diretor",q:0,vi:5000,v:5000,cp:0,i:"Spina"},
+      {d:"Dir. Produção",q:0,vi:3000,v:3000,cp:0,i:"Lua"},
+      {d:"Pré-Operacional",q:0,vi:1000,v:1000,cp:0,i:"Nayla"},
+      {d:"Props",q:0,vi:910,v:910,cp:0,i:"Lua"}
+    ],
+    locacao:[
+      {d:"Locação 1",q:0,vi:3500,v:3500,cp:0,i:"Fazenda Embauva"},
+      {d:"Locação 2",q:0,vi:2700,v:2700,cp:0,i:"Vista Alegre"}
+    ],
+    producao:[
+      {d:"Dir. Produção",q:0,vi:3000,v:3000,cp:0,i:"Lua"},
+      {d:"Produtor",q:0,vi:1200,v:1200,cp:0,i:"Ale"},
+      {d:"Assist. Produção",q:0,vi:600,v:600,cp:0,i:"Eliseu"},
+      {d:"Detailler",q:0,vi:800,v:800,cp:0,i:"Paulo Cera"},
+      {d:"Maquiadora",q:0,vi:800,v:800,cp:0,i:"Rubia"},
+      {d:"Cabeleireira",q:0,vi:600,v:600,cp:0,i:""},
+      {d:"Segurança",q:0,vi:1000,v:1000,cp:0,i:"Sob demanda"}
+    ],
     tecnica:[
-      {d:"Diretor (2 diárias)",q:1,vi:10000,v:10000,i:"Spina"},
-      {d:"Dir. Fotografia",q:2,vi:3000,v:3000,i:""},
-      {d:"Assist. Fotografia",q:2,vi:1500,v:1500,i:""},
-      {d:"Drone FPV GoPro+Mavic",q:2,vi:2000,v:2000,i:""}],
-    equip:[{d:"Aluguel Fotografia — Matheus",q:2,vi:2000,v:2000,i:""}],
-    logistica:[{d:"Catering por conta",q:8,vi:120,v:120,i:""},{d:"Carretinha",q:2,vi:500,v:500,i:""},{d:"Combustível",q:1,vi:200,v:200,i:""}],
-    elenco:[],
-    pos:[{d:"Chefe de Edição",q:1,vi:5000,v:5000,i:"Spina"},{d:"Fotos",q:30,vi:500,v:500,i:"Spina"}],
-    reembolsos:[]
+      {d:"Diretor",q:0,vi:5000,v:5000,cp:0,i:"Spina"},
+      {d:"Dir. Fotografia",q:0,vi:3000,v:3000,cp:0,i:""},
+      {d:"Assist. Fotografia",q:0,vi:1500,v:1500,cp:0,i:""},
+      {d:"Cinegrafista PRO",q:0,vi:1750,v:1750,cp:0,i:""},
+      {d:"Cinegrafista Médio",q:0,vi:1000,v:1000,cp:0,i:""},
+      {d:"1AC",q:0,vi:2500,v:2500,cp:0,i:""},
+      {d:"Chefe Elétrica",q:0,vi:2180,v:2180,cp:0,i:""},
+      {d:"Eletricista/Gaffer",q:0,vi:1000,v:1000,cp:0,i:""},
+      {d:"Chefe Maquinária",q:0,vi:2180,v:2180,cp:0,i:""},
+      {d:"Maquinista/Gaffer",q:0,vi:1000,v:1000,cp:0,i:""},
+      {d:"Drone - FPV Komodo + Mavic",q:0,vi:7000,v:7000,cp:0,i:""},
+      {d:"Drone - FPV GoPro + Mavic",q:0,vi:2000,v:2000,cp:0,i:""},
+      {d:"DIT",q:0,vi:1500,v:1500,cp:0,i:""},
+      {d:"Fotógrafo - Release",q:0,vi:1000,v:1000,cp:0,i:""},
+      {d:"Fotógrafo - MkOf",q:0,vi:1000,v:1000,cp:0,i:""},
+      {d:"Téc. Áudio",q:0,vi:1200,v:1200,cp:0,i:""},
+      {d:"Assist. Áudio",q:0,vi:800,v:800,cp:0,i:""}
+    ],
+    equip:[
+      {d:"Aluguel - Câmera",q:0,vi:1300,v:1300,cp:0,i:""},
+      {d:"Aluguel - Fotografia - Matheus",q:0,vi:2000,v:2000,cp:0,i:""},
+      {d:"Aluguel - Fotografia - Locadora",q:0,vi:0,v:0,cp:0,i:""},
+      {d:"Aluguel - Maquinário",q:0,vi:0,v:0,cp:0,i:""},
+      {d:"Aluguel - Set",q:0,vi:0,v:0,cp:0,i:""}
+    ],
+    logistica:[
+      {d:"Catering - Buffet",q:0,vi:150,v:150,cp:0,i:""},
+      {d:"Catering - Por conta",q:0,vi:120,v:120,cp:0,i:""},
+      {d:"Carretinha",q:0,vi:600,v:600,cp:0,i:""},
+      {d:"Van Executiva",q:0,vi:0,v:0,cp:0,i:""},
+      {d:"Hotel",q:0,vi:0,v:0,cp:0,i:""},
+      {d:"Passagem",q:0,vi:0,v:0,cp:0,i:""},
+      {d:"Aluguel Carro",q:0,vi:0,v:0,cp:0,i:""},
+      {d:"Combustível",q:0,vi:200,v:200,cp:0,i:""},
+      {d:"Estacionamento",q:0,vi:0,v:0,cp:0,i:""}
+    ],
+    elenco:[
+      {d:"Talento Principal",q:0,vi:4000,v:4000,cp:0,i:"30%"},
+      {d:"Talento Coadjuvante",q:0,vi:0,v:0,cp:0,i:""}
+    ],
+    pos:[
+      {d:"Chefe de Edição",q:0,vi:5000,v:5000,cp:0,i:""},
+      {d:"Edição (até 15\")",q:0,vi:1000,v:1000,cp:0,i:""},
+      {d:"Edição (até 30\")",q:0,vi:1750,v:1750,cp:0,i:""},
+      {d:"Edição (até 60\")",q:0,vi:2500,v:2500,cp:0,i:""},
+      {d:"Edição (até 90\")",q:0,vi:3500,v:3500,cp:0,i:""},
+      {d:"Edição (90\" a 3 min)",q:0,vi:5000,v:5000,cp:0,i:""},
+      {d:"Edição (3 a 5 min)",q:0,vi:8000,v:8000,cp:0,i:""},
+      {d:"Edição (5 a 10 min)",q:0,vi:11000,v:11000,cp:0,i:""},
+      {d:"Edição (10 a 15 min)",q:0,vi:13000,v:13000,cp:0,i:""},
+      {d:"Edição (90 a 120 min)",q:0,vi:15000,v:15000,cp:0,i:""},
+      {d:"Fotos",q:0,vi:500,v:500,cp:0,i:"Spina"},
+      {d:"Cartelas",q:0,vi:500,v:500,cp:0,i:""},
+      {d:"SFX (até 15\")",q:0,vi:1000,v:1000,cp:0,i:""},
+      {d:"SFX (até 30\")",q:0,vi:2000,v:2000,cp:0,i:""},
+      {d:"SFX (até 60\")",q:0,vi:3000,v:3000,cp:0,i:""},
+      {d:"VFX",q:0,vi:0,v:0,cp:0,i:"Sob demanda"}
+    ],
+    reembolsos:[
+      {d:"Reembolso",q:0,vi:0,v:0,cp:0,i:""},
+      {d:"Reembolso",q:0,vi:0,v:0,cp:0,i:""},
+      {d:"Reembolso",q:0,vi:0,v:0,cp:0,i:""}
+    ]
   },
   ajustes:[
     {cat:"Pós-Produção",item:"Fotos (entrega final)",qo:30,vo:15000,qa:15,va:7500,obs:"Redução do volume de fotos editadas"},
@@ -272,7 +346,9 @@ const DEFAULTS = {
     {cat:"Logística",item:"Equipe em set",qo:8,vo:960,qa:5,va:600,obs:"Equipe reduzida de 8 para 5 pessoas"},
   ],
   openCats:{tecnica:true},
-  showIdeal:false
+  showIdeal:false,
+  showPago:false,
+  hideEmpty:true
 };
 
 const KEY="stage_orcamento_html_v1";
@@ -288,11 +364,14 @@ function load(){
 function migrate(st){
   // garante campos novos em dados antigos
   if(st.showIdeal===undefined) st.showIdeal=false;
-  if(st.fiscal && st.fiscal.reservaPct===undefined) st.fiscal.reservaPct=0;
+  if(st.showPago===undefined) st.showPago=false;
+  if(st.hideEmpty===undefined) st.hideEmpty=true;
+  if(st.fiscal && st.fiscal.fecharEm===undefined) st.fiscal.fecharEm=0;
   if(st.items){
     Object.keys(st.items).forEach(cat=>{
       (st.items[cat]||[]).forEach(it=>{
         if(it.vi===undefined) it.vi = (it.v!==undefined?it.v:0); // ideal = cobrado por padrão
+        if(it.cp===undefined) it.cp = (it.v!==undefined?it.v:0); // pago ao profissional = cobrado por padrão (sem ganho extra)
         // remove campos antigos de custo, se existirem
         delete it.c; delete it.ce; delete it.cr;
       });
@@ -435,6 +514,78 @@ async function apagarDoHistorico(id){
   }
 }
 
+// ── Duplicar categoria (ex: 2º dia de Técnica) ──
+function duplicarCategoria(catId){
+  const lista = cats();
+  const orig = lista.find(c=>c.id===catId);
+  if(!orig) return;
+  // garante que S.cats existe (materializa a lista base na primeira duplicação)
+  if(!S.cats || !S.cats.length){ S.cats = JSON.parse(JSON.stringify(CATS_BASE)); }
+  const novoId = catId + "_" + Date.now().toString(36);
+  // sugere um nome incrementando "Dia N" se o label tiver "Dia"
+  let novoLabel = orig.label;
+  const mDia = novoLabel.match(/Dia (\d+)/);
+  if(mDia){ novoLabel = novoLabel.replace(/Dia \d+/, "Dia "+(parseInt(mDia[1])+1)); }
+  else { novoLabel = novoLabel + " (cópia)"; }
+  const novaCat = {id:novoId, label:novoLabel, icon:orig.icon};
+  // insere logo após a original
+  const idxOrig = S.cats.findIndex(c=>c.id===catId);
+  S.cats.splice(idxOrig+1, 0, novaCat);
+  // copia os itens da original (mantém valores, zera quantidades)
+  const itensCopia = JSON.parse(JSON.stringify(S.items[catId]||[])).map(it=>({...it, q:0}));
+  S.items[novoId] = itensCopia;
+  S.openCats[novoId] = true;
+  save();
+  renderDados();
+}
+
+function renomearCategoria(catId){
+  const lista = cats();
+  const c = lista.find(x=>x.id===catId);
+  if(!c) return;
+  const novo = prompt("Novo nome para a categoria:", c.label);
+  if(novo===null || !novo.trim()) return;
+  if(!S.cats || !S.cats.length){ S.cats = JSON.parse(JSON.stringify(CATS_BASE)); }
+  const target = S.cats.find(x=>x.id===catId);
+  if(target){ target.label = novo.trim(); save(); renderDados(); }
+}
+
+function removerCategoria(catId){
+  // só permite remover categorias duplicadas (não as base)
+  if(CATS_BASE.find(c=>c.id===catId)){ alert("As categorias originais não podem ser removidas. Use 'Ocultar vazios' para limpar a visão."); return; }
+  if(!confirm("Remover esta categoria duplicada e todos os seus itens?")) return;
+  S.cats = (S.cats||[]).filter(c=>c.id!==catId);
+  delete S.items[catId];
+  save();
+  renderDados();
+}
+
+// ── Drag & drop para reordenar itens dentro da categoria ──
+let dragCat=null, dragIdx=null;
+function dragStart(e,cat,idx){ dragCat=cat; dragIdx=idx; e.dataTransfer.effectAllowed='move'; try{e.dataTransfer.setData('text/plain',idx);}catch(_){} }
+function dragOver(e){ e.preventDefault(); e.dataTransfer.dropEffect='move'; }
+function dropRow(e,cat,idx){
+  e.preventDefault();
+  if(dragCat===null || dragCat!==cat || dragIdx===null || dragIdx===idx) return;
+  const arr=S.items[cat];
+  const [moved]=arr.splice(dragIdx,1);
+  arr.splice(idx,0,moved);
+  dragCat=null; dragIdx=null;
+  save(); renderDados();
+}
+function dragEnd(e){ dragCat=null; dragIdx=null; }
+
+function comecarDaTabelaModelo(){
+  if(!confirm("Começar da tabela-modelo limpa?\n\nIsso carrega a lista completa de itens com os valores de tabela e zera todas as quantidades. O orçamento atual em edição será substituído (salve no histórico antes, se quiser guardá-lo).")) return;
+  const modelo = JSON.parse(JSON.stringify(DEFAULTS));
+  S.items = modelo.items;        // tabela-modelo com q=0
+  S.fiscal = JSON.parse(JSON.stringify(DEFAULTS.fiscal));
+  S.ajustes = [];
+  S.hideEmpty = true;
+  save();
+  renderDados();
+}
+
 function novoOrcamento(){
   if(!confirm("Começar um orçamento novo em branco? Salve o atual no histórico antes, se quiser guardá-lo.")) return;
   S = JSON.parse(JSON.stringify(DEFAULTS));
@@ -466,43 +617,40 @@ const num=v=>{
   return isNaN(n)?0:n;
 };
 
-function catTotal(id){return (S.items[id]||[]).reduce((s,it)=>s+(it.q||0)*(it.v||0),0);}   // valor COBRADO (soma)
-function catIdeal(id){return (S.items[id]||[]).reduce((s,it)=>s+(it.q||0)*(it.vi||0),0);}  // valor IDEAL (comparação)
-function subtotal(){return CATS.reduce((s,c)=>s+catTotal(c.id),0);}
-function subtotalIdeal(){return CATS.reduce((s,c)=>s+catIdeal(c.id),0);}
+function catTotal(id){return (S.items[id]||[]).reduce((s,it)=>s+(it.q||0)*(it.v||0),0);}   // valor COBRADO ao cliente (soma no total)
+function catIdeal(id){return (S.items[id]||[]).reduce((s,it)=>s+(it.q||0)*(it.vi||0),0);}  // valor IDEAL (referência de meta)
+function catPago(id){return (S.items[id]||[]).reduce((s,it)=>s+(it.q||0)*(it.cp!==undefined?it.cp:it.v||0),0);}  // pago ao profissional (custo real)
+function subtotal(){return cats().reduce((s,c)=>s+catTotal(c.id),0);}
+function subtotalIdeal(){return cats().reduce((s,c)=>s+catIdeal(c.id),0);}
+function subtotalPago(){return cats().reduce((s,c)=>s+catPago(c.id),0);}
 
 function calc(){
-  const sub=subtotal();          // subtotal COBRADO = custo de produção (o que soma)
-  const subIdeal=subtotalIdeal(); // subtotal IDEAL (referência/meta por item)
+  const sub=subtotal();           // subtotal COBRADO ao cliente (o que soma no total)
+  const subIdeal=subtotalIdeal(); // subtotal IDEAL (referência de meta, não mexe no lucro)
+  const subPago=subtotalPago();   // subtotal PAGO aos profissionais/fornecedores (custo real)
   const t=S.fiscal.taxa/100, i=S.fiscal.imposto/100, d=S.fiscal.desconto/100;
 
-  // Preço com taxa + imposto (ambos somados por cima do subtotal)
-  const totalCalc  = sub*(1+t+i-d);       // total que vai ao cliente, com base no que está cobrado hoje
-  const totalIdeal = subIdeal*(1+t+i-d);  // total se cobrasse o ideal cheio em todo item
+  // Preço com taxa + imposto, sobre o que é COBRADO (não sobre o pago)
+  const totalCalc  = sub*(1+t+i-d);
+  const totalIdeal = subIdeal*(1+t+i-d);
   const taxaVal = sub*t, impVal = sub*i, descVal = sub*d;
 
-  // LUCRO REAL = Taxa da Produtora cheia (o imposto é repassado ao cliente, não toca a Stage)
-  const lucro = taxaVal - descVal;
+  // LUCRO EXTRA: diferença entre o que cobra e o que paga ao profissional (por item, somado)
+  const lucroExtra = sub - subPago;
+
+  // LUCRO REAL = Taxa da Produtora cheia + Lucro Extra (cobrado-pago) − desconto
+  // (o imposto é repassado ao cliente, não toca a Stage)
+  const lucro = taxaVal + lucroExtra - descVal;
   const margem = totalCalc>0 ? lucro/totalCalc : 0;
 
   // Verba negociada (cliente). Se 0, usa o total calculado.
   const verba = S.fiscal.verba>0 ? S.fiscal.verba : totalCalc;
 
   // Gap entre o que a verba permite e o que está sendo cobrado hoje
-  // gapVerba > 0  => tem folga (verba maior que o total atual) -> dá pra subir itens
-  // gapVerba < 0  => falta verba (verba menor que o total atual) -> precisa cortar
   const gapVerba = verba - totalCalc;
 
-  // Reserva de segurança: % do gap (quando positivo) que vai virar aumento real nos itens,
-  // subindo cada item na direção do seu Valor Ideal (limitado ao próprio ideal — nunca passa dele)
-  const reservaPct = (S.fiscal.reservaPct||0)/100;
-  const folgaDisponivel = Math.max(0, subIdeal - sub); // o quanto ainda dá pra subir (limitado pelo ideal)
-  // Convertendo o gap (que está em valor FINAL, com taxa+imposto) para impacto no SUBTOTAL:
-  const gapEmSubtotal = gapVerba>0 ? gapVerba/(1+t+i) : 0;
-  const reservaAlvo = Math.min(folgaDisponivel, gapEmSubtotal) * reservaPct; // quanto subir no subtotal
-  const subComReserva = sub + reservaAlvo;
-  const totalComReserva = subComReserva*(1+t+i-d);
-  const lucroComReserva = subComReserva*t - descVal;
+  // Folga: quanto ainda dá pra subir os itens até o Valor Ideal (referência)
+  const folgaDisponivel = Math.max(0, subIdeal - sub);
 
   // Disciplina de preço (quando usa Valor Ideal): ideal × cobrado
   const descontoVsIdeal = totalIdeal - totalCalc;
@@ -514,20 +662,21 @@ function calc(){
   const corteP = sub>0 ? corteR/sub : 0;
 
   // Lucro se a verba negociada for menor que o total calculado:
-  const custoMaisImposto = sub + impVal;
+  // a verba precisa cobrir o que é PAGO (custo real) + imposto; o que sobra é o lucro real
+  const custoMaisImposto = subPago + impVal;
   const lucroNaVerba = verba - custoMaisImposto;
 
-  // Cenário IDEAL (se cobrasse o valor cheio de cada item)
-  const taxaIdealVal = subIdeal*t;       // lucro no cenário ideal
+  // Cenário IDEAL (se cobrasse o valor cheio de cada item, mantendo o mesmo pago ao profissional)
+  const taxaIdealVal = subIdeal*t;
   const impIdealVal = subIdeal*i;
-  const lucroIdeal = taxaIdealVal - descVal;
+  const lucroIdealExtra = subIdeal - subPago; // no ideal, paga o mesmo, cobra o ideal
+  const lucroIdeal = taxaIdealVal + lucroIdealExtra - descVal;
   const margemIdeal = totalIdeal>0 ? lucroIdeal/totalIdeal : 0;
 
-  return {sub,subIdeal,totalCalc,totalIdeal,taxaVal,impVal,descVal,
-    lucro,margem,verba,gapVerba,reservaPct,folgaDisponivel,reservaAlvo,
-    subComReserva,totalComReserva,lucroComReserva,
+  return {sub,subIdeal,subPago,totalCalc,totalIdeal,taxaVal,impVal,descVal,
+    lucroExtra,lucro,margem,verba,gapVerba,folgaDisponivel,
     descontoVsIdeal,descontoVsIdealP,
-    taxaIdealVal,impIdealVal,lucroIdeal,margemIdeal,
+    taxaIdealVal,impIdealVal,lucroIdeal,margemIdeal,lucroIdealExtra,
     custoMax,corteR,corteP,custoMaisImposto,lucroNaVerba,t,i,d};
 }
 
@@ -621,31 +770,49 @@ function renderInicio(){
 
 /* ============ RENDER: DADOS ============ */
 function renderDados(){
-  const cats = CATS.map(cat=>{
+  const catsHtml = cats().map(cat=>{
     const open = S.openCats[cat.id];
     const tot = catTotal(cat.id);
-    const showIdeal = S.showIdeal;
-    const rows = (S.items[cat.id]||[]).map((it,idx)=>`
-      <tr class="irow">
+    const showIdeal = S.showIdeal, showPago = S.showPago;
+    const rows = (S.items[cat.id]||[]).map((it,idx)=>{
+      if(S.hideEmpty && (!it.v||it.v===0) && (!it.cp||it.cp===0)) return ''; // oculta quando cobrado E pago estão zerados
+      const ganhoExtra = (it.q||0)*((it.v||0)-(it.cp!==undefined?it.cp:it.v||0));
+      return `
+      <tr class="irow" draggable="true"
+          ondragstart="dragStart(event,'${cat.id}',${idx})"
+          ondragover="dragOver(event)"
+          ondrop="dropRow(event,'${cat.id}',${idx})"
+          ondragend="dragEnd(event)">
+        <td style="width:18px;cursor:grab;color:#444;text-align:center;font-size:13px" title="Arraste para reordenar">⠿</td>
         <td><input class="txt" value="${esc(it.d)}" oninput="upd('${cat.id}',${idx},'d',this.value)"></td>
-        <td style="width:64px"><input class="num" type="number" inputmode="decimal" value="${it.q}" oninput="upd('${cat.id}',${idx},'q',this.value)"></td>
-        ${showIdeal?`<td style="width:100px"><input class="money" type="number" value="${it.vi}" oninput="upd('${cat.id}',${idx},'vi',this.value)" title="Valor ideal unitário (quanto você gostaria de cobrar)" style="border-color:#3a3320;color:#d4b84a"></td>`:''}
-        <td style="width:110px"><input class="money" type="number" value="${it.v}" oninput="upd('${cat.id}',${idx},'v',this.value)" title="Valor cobrado ao cliente (unitário) — este é o que soma"></td>
+        <td style="width:54px"><input class="num" type="number" inputmode="decimal" value="${it.q}" oninput="upd('${cat.id}',${idx},'q',this.value)"></td>
+        ${showIdeal?`<td style="width:96px"><input class="money" type="number" value="${it.vi}" oninput="upd('${cat.id}',${idx},'vi',this.value)" title="Valor ideal unitário (quanto você gostaria de cobrar)" style="border-color:#3a3320;color:#d4b84a"></td>`:''}
+        <td style="width:100px"><input class="money" type="number" value="${it.v}" oninput="upd('${cat.id}',${idx},'v',this.value)" title="Valor cobrado ao cliente (unitário) — este é o que soma no total"></td>
+        ${showPago?`<td style="width:100px"><input class="money" type="number" value="${it.cp!==undefined?it.cp:it.v}" oninput="upd('${cat.id}',${idx},'cp',this.value)" title="Valor pago ao profissional/fornecedor (unitário) — custo real" style="border-color:#2a3a2a;color:#e0a85e"></td>`:''}
         <td class="total" id="rowtot-${cat.id}-${idx}">${fmt(it.q*it.v)}</td>
-        <td style="width:110px"><input class="txt" value="${esc(it.i)}" oninput="upd('${cat.id}',${idx},'i',this.value)" placeholder="obs"></td>
+        ${showPago?`<td style="width:90px;text-align:right;font-size:11px;color:${ganhoExtra>0?'var(--green)':ganhoExtra<0?'var(--red)':'#555'}" id="rowextra-${cat.id}-${idx}">${ganhoExtra!==0?(ganhoExtra>0?'+':'')+fmt(ganhoExtra):'—'}</td>`:''}
+        <td style="width:100px"><input class="txt" value="${esc(it.i)}" oninput="upd('${cat.id}',${idx},'i',this.value)" placeholder="obs"></td>
         <td style="width:24px"><button class="del" onclick="delItem('${cat.id}',${idx})">✕</button></td>
-      </tr>`).join('');
+      </tr>`;}).join('');
+    const ocultos = (S.items[cat.id]||[]).filter(it=>(!it.v||it.v===0)&&(!it.cp||it.cp===0)).length;
+    const isDup = !CATS_BASE.find(c=>c.id===cat.id);
     return `
     <div class="cat ${open?'open':''}">
       <div class="cat-head" onclick="toggleCat('${cat.id}')">
         <span class="label"><span class="icon">${cat.icon}</span>${cat.label}</span>
-        <span><span class="cat-total ${tot?'':'zero'}" id="tot-${cat.id}">${fmt(tot)}</span> &nbsp;<span class="chev">▼</span></span>
+        <span style="display:flex;align-items:center;gap:10px">
+          <button class="cat-act" onclick="event.stopPropagation();duplicarCategoria('${cat.id}')" title="Duplicar categoria (ex: 2º dia)">⧉</button>
+          <button class="cat-act" onclick="event.stopPropagation();renomearCategoria('${cat.id}')" title="Renomear categoria">✎</button>
+          ${isDup?`<button class="cat-act" onclick="event.stopPropagation();removerCategoria('${cat.id}')" title="Remover esta categoria duplicada" style="color:#a05050">🗑</button>`:''}
+          <span class="cat-total ${tot?'':'zero'}" id="tot-${cat.id}">${fmt(tot)}</span> &nbsp;<span class="chev">▼</span>
+        </span>
       </div>
       <div class="cat-body">
         <table>
-          <tr class="ihead"><th>Descrição</th><th>Qtd</th>${S.showIdeal?'<th style="color:#8a7a3a">Valor ideal</th>':''}<th>Valor cobrado</th><th style="text-align:right">Total</th><th>Obs</th><th></th></tr>
+          <tr class="ihead"><th></th><th>Descrição</th><th>Qtd</th>${S.showIdeal?'<th style="color:#8a7a3a">Valor ideal</th>':''}<th>Valor cobrado</th>${S.showPago?'<th style="color:#e0a85e">Pago ao profissional</th>':''}<th style="text-align:right">Total</th>${S.showPago?'<th style="text-align:right">Ganho extra</th>':''}<th>Obs</th><th></th></tr>
           ${rows||''}
         </table>
+        ${(S.hideEmpty && ocultos>0)?`<div style="padding:8px 4px;font-size:11px;color:var(--txt-dim)">${ocultos} ${ocultos===1?'item disponível oculto':'itens disponíveis ocultos'} (quantidade 0). <a onclick="toggleEmpty()" style="color:var(--gold);cursor:pointer;text-decoration:underline">mostrar todos</a></div>`:''}
         <button class="add-item" onclick="addItem('${cat.id}')">+ Adicionar item</button>
       </div>
     </div>`;
@@ -655,10 +822,15 @@ function renderDados(){
   document.getElementById('v-dados').innerHTML=`
   <div class="panel">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;gap:12px;flex-wrap:wrap">
-      <div class="panel-title" style="margin:0">Itens do orçamento — você cobra o que custa. ${S.showIdeal?'A coluna <b style="color:#d4b84a">Valor ideal</b> é só sua referência de preço.':''}</div>
-      <button class="btn btn-ghost" style="padding:6px 12px;font-size:10px" onclick="toggleIdeal()">${S.showIdeal?'✓ Valor ideal visível':'+ Mostrar Valor ideal'}</button>
+      <div class="panel-title" style="margin:0">Itens do orçamento — preencha Qtd e Valor cobrado.</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-ghost" style="padding:6px 12px;font-size:10px" onclick="comecarDaTabelaModelo()" title="Carrega a lista completa com valores de tabela e zera as quantidades">↻ Tabela-modelo limpa</button>
+        <button class="btn btn-ghost" style="padding:6px 12px;font-size:10px" onclick="toggleEmpty()">${S.hideEmpty?'👁 Mostrar todos os itens':'⊟ Ocultar vazios'}</button>
+        <button class="btn btn-ghost" style="padding:6px 12px;font-size:10px" onclick="togglePago()">${S.showPago?'✓ Pago ao profissional':'+ Pago ao profissional'}</button>
+        <button class="btn btn-ghost" style="padding:6px 12px;font-size:10px" onclick="toggleIdeal()">${S.showIdeal?'✓ Valor ideal':'+ Valor ideal'}</button>
+      </div>
     </div>
-    ${cats}
+    ${catsHtml}
   </div>
 
   <div class="panel">
@@ -667,7 +839,8 @@ function renderDados(){
       <div class="cfg-field"><label>Verba Negociada <span class="hint">(R$ — o que o cliente paga · 0 = usar total calculado)</span></label><input type="number" value="${f.verba}" oninput="updFiscal('verba',this.value)"></div>
       <div class="cfg-field"><label>Taxa da Produtora <span class="hint">(% sobre produção)</span></label><input type="number" value="${f.taxa}" oninput="updFiscal('taxa',this.value)"></div>
       <div class="cfg-field"><label>Impostos / NF <span class="hint">(% sobre produção)</span></label><input type="number" value="${f.imposto}" oninput="updFiscal('imposto',this.value)"></div>
-      <div class="cfg-field"><label>Desconto <span class="hint">(% — 0 se não houver)</span></label><input type="number" value="${f.desconto}" oninput="updFiscal('desconto',this.value)"></div>
+      <div class="cfg-field"><label>Desconto <span class="hint">(% — calculado ou manual)</span></label><input type="number" step="0.01" value="${Math.round((f.desconto||0)*100)/100}" oninput="updFiscal('desconto',this.value)"></div>
+      <div class="cfg-field"><label>Fechar em <span class="hint">(R$ — arredonda o total; deixe 0 pra não usar)</span></label><input type="number" placeholder="ex: 62000" oninput="fecharEmValor(this.value)"></div>
     </div>
   </div>
 
@@ -701,26 +874,34 @@ function resultPanelHTML(){
     <div class="res-row"><span class="rlabel sub">↳ Diferença vs total calculado</span><span class="rval ${temFolga?'v-green':temFalta?'v-yellow':''}">${temFolga?'+':''}${fmt(k.gapVerba)} ${temFolga?'(folga — dá pra cobrar mais)':temFalta?'(abaixo do total cheio — confira o lucro real abaixo)':'(bateu certinho)'}</span></div>
     `:''}
 
-    <div class="res-big lucro" style="border-color:${lucroReal>0?'#2a5c34':'#5c2620'}"><div class="rb-label">Lucro real da Stage ${usaVerba?'(na verba negociada)':'(Taxa da Produtora)'}</div><div class="rb-val ${lucroReal>0?'v-green':'v-red'}">${fmt(lucroReal)}</div></div>
+    ${k.lucroExtra!==0?`<div class="res-row" style="margin-top:6px"><span class="rlabel sub">↳ Ganho extra (cobrado − pago ao profissional)</span><span class="rval ${k.lucroExtra>0?'v-green':'v-red'}">${k.lucroExtra>0?'+':''}${fmt(k.lucroExtra)}</span></div>`:''}
 
-    ${temFolga && k.folgaDisponivel>0.5 ? `
-    <div style="margin-top:16px;padding:14px 16px;background:#15120a;border:1px solid #3a3320;border-radius:8px">
-      <div style="font-size:10px;color:var(--gold);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px">💰 Reserva de segurança disponível</div>
-      <div style="font-size:11px;color:#cbb878;line-height:1.6;margin-bottom:10px">A verba do cliente (${fmt(k.verba)}) tem folga de <b>${fmt(k.gapVerba)}</b> sobre o que está cobrado hoje. Você tem <b>${fmt(k.folgaDisponivel)}</b> de margem nos itens (diferença até o Valor Ideal) para usar como reserva — útil para imprevistos na produção.</div>
-      <label style="display:block;font-size:10px;color:#8a7a3a;text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px">Quanto da folga usar como reserva</label>
-      <div style="display:flex;align-items:center;gap:10px">
-        <input type="range" min="0" max="100" value="${f.reservaPct}" oninput="updFiscal('reservaPct',this.value)" style="flex:1">
-        <input type="number" min="0" max="100" value="${f.reservaPct}" oninput="updFiscal('reservaPct',this.value)" style="width:60px;background:var(--input-bg);border:1px solid #3a3320;border-radius:4px;color:#d4b84a;font:inherit;font-size:13px;padding:5px;text-align:center">
-        <span style="font-size:12px;color:#8a7a3a">%</span>
+    <div class="res-big lucro" style="border-color:${lucroReal>0?'#2a5c34':'#5c2620'}"><div class="rb-label">Lucro real da Stage ${usaVerba?'(na verba negociada)':'(Taxa + ganho extra)'}</div><div class="rb-val ${lucroReal>0?'v-green':'v-red'}">${fmt(lucroReal)}</div></div>
+
+    ${f.verba>0 && k.gapVerba>0.5 ? `
+    <div style="margin-top:16px">
+      ${!simAjuste ? `
+      <button class="btn" onclick="simularAjusteVerba()" style="width:100%;background:var(--gold);color:#0d0d0d;border:none;padding:11px;border-radius:8px;font-weight:600;font-size:12px;cursor:pointer">⚡ Subir Valor Cobrado até a verba (${fmt(f.verba)})</button>
+      <div style="margin-top:8px;font-size:10px;color:var(--txt-dim);line-height:1.5">A verba é maior que o total atual. Isso sobe o que você cobra (mantendo o que paga aos profissionais fixo) até bater na verba — a diferença vira ganho extra. Você confere antes de aplicar.</div>
+      ` : `
+      <div style="padding:16px;background:#15120a;border:1px solid var(--gold);border-radius:8px">
+        <div style="font-size:11px;color:var(--gold);text-transform:uppercase;letter-spacing:.08em;margin-bottom:12px;font-weight:600">⚡ Simulação — ajuste até a verba</div>
+        <div class="res-row" style="border:none;padding:5px 0"><span class="rlabel">Total: hoje → ajustado</span><span class="rval">${fmt(simAjuste.totalAntigo)} → <b style="color:var(--gold)">${fmt(simAjuste.novoTotal)}</b></span></div>
+        <div class="res-row" style="border:none;padding:5px 0"><span class="rlabel">Cada Valor Cobrado muda em</span><span class="rval ${simAjuste.fator>=1?'v-green':'v-red'}">${simAjuste.fator>=1?'+':''}${pct(simAjuste.fator-1)}</span></div>
+        <div class="res-row" style="border:none;padding:5px 0"><span class="rlabel">Ganho extra: hoje → ajustado</span><span class="rval v-green">${fmt(k.lucroExtra)} → ${fmt(simAjuste.novoExtra)}</span></div>
+        <div class="res-row" style="border:none;padding:5px 0"><span class="rlabel" style="color:var(--green)">Lucro real: hoje → ajustado</span><span class="rval v-green">${fmt(simAjuste.lucroAntigo)} → <b>${fmt(simAjuste.novoLucro)}</b></span></div>
+        <div style="display:flex;gap:8px;margin-top:14px">
+          <button class="btn" onclick="aplicarAjusteVerba()" style="flex:1;background:var(--green);color:#0d0d0d;border:none;padding:10px;border-radius:6px;font-weight:600;font-size:12px;cursor:pointer">✓ Aplicar nos itens</button>
+          <button class="btn btn-ghost" onclick="cancelarAjusteVerba()" style="flex:1;padding:10px;border-radius:6px;font-size:12px;cursor:pointer">Cancelar</button>
+        </div>
+        <div style="margin-top:10px;font-size:10px;color:#665c3a;line-height:1.5">ⓘ Ao aplicar, cada Valor Cobrado é multiplicado pelo fator acima. O Pago ao profissional não muda — a diferença vira ganho extra.</div>
       </div>
-      ${f.reservaPct>0?`
-      <div style="margin-top:12px;padding-top:12px;border-top:1px solid #3a3320">
-        <div class="res-row" style="border:none;padding:4px 0"><span class="rlabel" style="color:#8a7a3a">Subtotal com reserva</span><span class="rval" style="color:#d4b84a">${fmt(k.subComReserva)}</span></div>
-        <div class="res-row" style="border:none;padding:4px 0"><span class="rlabel" style="color:#8a7a3a">Total com reserva (vai pra folha de rosto)</span><span class="rval" style="color:#d4b84a;font-weight:700">${fmt(k.totalComReserva)}</span></div>
-        <div class="res-row" style="border:none;padding:4px 0"><span class="rlabel" style="color:#8a7a3a">Lucro com reserva</span><span class="rval v-green">${fmt(k.lucroComReserva)}</span></div>
-      </div>
-      <div style="margin-top:10px;font-size:10px;color:#665c3a;line-height:1.5">ⓘ Esse aumento sobe os itens em direção ao Valor Ideal de cada um (nunca passa do ideal) — assim você consegue justificar pro cliente como "valor cheio de itens que estavam com desconto", se ele perguntar.</div>
-      </div>`:''}
+      `}
+    </div>
+    ` : f.verba>0 && k.gapVerba < -0.5 ? `
+    <div style="margin-top:16px;padding:14px 16px;background:#1f0f0d;border:1px solid #5c2620;border-radius:8px">
+      <div style="font-size:11px;color:#e06a5e;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;font-weight:600">⚠ Verba menor que o total</div>
+      <div style="font-size:11px;color:#d0a8a4;line-height:1.6">O total a cobrar (${fmt(k.totalCalc)}) está <b>${fmt(-k.gapVerba)} acima</b> da verba (${fmt(f.verba)}). Baixar o que você cobra não é seguro — você continuaria pagando o mesmo aos profissionais e poderia ter prejuízo. O caminho certo é <b>cortar escopo</b>: reduzir entregas, diárias ou equipe na aba <b>Ajuste de Escopo</b>.</div>
     </div>` : ''}`;
 }
 
@@ -729,7 +910,17 @@ function esc(s){return String(s||'').replace(/"/g,'&quot;').replace(/</g,'&lt;')
 /* ============ RENDER: FOLHA DE ROSTO ============ */
 function renderRosto(){
   const k=calc();
-  const temReserva = S.fiscal.reservaPct>0 && k.reservaAlvo>0.5;
+  // Folha de Rosto: Taxa+Imposto arredondado pra múltiplo de 5.
+  const frTaxaImp = ceil5(k.taxaVal + k.impVal);
+  // Se há desconto (ex: fechou num valor redondo), o desconto absorve o arredondamento
+  // para o TOTAL bater exatamente no alvo (k.totalCalc já é o total com desconto aplicado).
+  let frDesc = 0, frTotal = k.sub + frTaxaImp;
+  if(S.fiscal.desconto>0){
+    // se fechou num valor redondo, usa o alvo exato; senão, usa o total calculado
+    frTotal = (S.fiscal.fecharEm>0) ? S.fiscal.fecharEm : Math.round(k.totalCalc*100)/100;
+    frDesc = (k.sub + frTaxaImp) - frTotal;       // desconto = o que falta pra fechar
+  }
+
   const rows = FR_ORDER.map(id=>{
     const v=catTotal(id);
     return `<tr><td>${CAT_LABEL_FR[id]}</td><td class="r">${v>0?fmt(v):'—'}</td></tr>`;
@@ -749,15 +940,13 @@ function renderRosto(){
       <div class="fr-irow"><span class="fr-ilabel">Cliente</span><span class="fr-ival">${esc(S.cliente)}</span></div>
     </div>
     <div class="fr-body">
-      ${temReserva?`<div style="background:#f5e9c8;border-left:3px solid #c9a227;padding:8px 14px;margin-bottom:14px;font-size:11px;color:#5c4a10">ⓘ Itens ajustados para valor cheio (reserva de segurança aplicada)</div>`:''}
       <table class="fr-table">
         <tr><th>Item</th><th class="r">Valor</th></tr>
         ${rows}
-        <tr class="sub"><td>Subtotal</td><td class="r">${fmt(temReserva?k.subComReserva:k.sub)}</td></tr>
-        <tr class="fiscal"><td>Taxa da Produtora</td><td class="r">${fmt(ceil5(temReserva?k.subComReserva*k.t:k.taxaVal))}</td></tr>
-        <tr class="fiscal"><td>Impostos / NF</td><td class="r">${fmt(ceil5(temReserva?k.subComReserva*k.i:k.impVal))}</td></tr>
-        ${S.fiscal.desconto>0?`<tr class="fiscal"><td>Desconto</td><td class="r" style="color:#b00">−${fmt(k.descVal)}</td></tr>`:''}
-        <tr class="total"><td>TOTAL</td><td class="r">${fmt((temReserva?k.subComReserva:k.sub) + ceil5(temReserva?k.subComReserva*k.t:k.taxaVal) + ceil5(temReserva?k.subComReserva*k.i:k.impVal) - (S.fiscal.desconto>0?k.descVal:0))}</td></tr>
+        <tr class="sub"><td>Subtotal</td><td class="r">${fmt(k.sub)}</td></tr>
+        <tr class="fiscal"><td>Taxa da Produtora + Impostos / NF</td><td class="r">${fmt(frTaxaImp)}</td></tr>
+        ${S.fiscal.desconto>0?`<tr class="fiscal"><td>10. Desconto (${(Math.round(S.fiscal.desconto*100)/100)}%)</td><td class="r" style="color:#b00">−${fmt(frDesc)}</td></tr>`:''}
+        <tr class="total"><td>TOTAL</td><td class="r">${fmt(frTotal)}</td></tr>
       </table>
     </div>
     <div class="fr-obs">
@@ -788,10 +977,18 @@ function renderRosto(){
 function renderAnalise(){
   const k=calc();
 
-  // Bloco 1: comparação ideal × cobrado (só se o Valor Ideal estiver ativo e houver diferença)
+  // Bloco 1: comparação COBRADO × PAGO AO PROFISSIONAL (fonte real do ganho extra) — sempre visível
+  const rowsPago = cats().map(c=>{
+    const cob=catTotal(c.id), pago=catPago(c.id), dif=cob-pago;
+    if(cob===0 && pago===0) return '';
+    const cls = dif>0 ? 'v-green' : (dif<0 ? 'v-red' : '');
+    return `<tr><td>${c.icon} ${c.label}</td><td>${fmt(cob)}</td><td style="color:#e0a85e">${fmt(pago)}</td><td class="${cls}" style="font-weight:600">${dif!==0?(dif>0?'+':'')+fmt(dif):fmt(0)}</td></tr>`;
+  }).join('');
+
+  // Bloco 2: comparação ideal × cobrado (só se o Valor Ideal estiver ativo e houver diferença)
   let idealBlock = '';
   if(S.showIdeal && Math.abs(k.subIdeal-k.sub)>0.01){
-    const rows = CATS.map(c=>{
+    const rows = cats().map(c=>{
       const ideal=catIdeal(c.id), cob=catTotal(c.id), dif=ideal-cob;
       const difP = ideal>0 ? dif/ideal : 0;
       if(ideal===0 && cob===0) return '';
@@ -811,17 +1008,27 @@ function renderAnalise(){
     </div>`;
   }
 
-  // Bloco 2: composição do lucro (sempre)
   const usaVerba = S.fiscal.verba>0 && S.fiscal.verba < k.totalCalc;
   const lucroReal = usaVerba ? k.lucroNaVerba : k.lucro;
 
   document.getElementById('v-analise').innerHTML=`
+  <div class="panel">
+    <div class="panel-title">Valor cobrado × Pago ao profissional — fonte do ganho extra por categoria</div>
+    <table class="an-table">
+      <tr><th>Categoria</th><th>Cobrado</th><th>Pago ao profissional</th><th>Ganho extra</th></tr>
+      ${rowsPago||'<tr><td colspan="4" style="text-align:center;color:var(--txt-dim);padding:20px">Sem itens preenchidos</td></tr>'}
+      <tr class="total-row"><td>TOTAL</td><td>${fmt(k.sub)}</td><td style="color:#e0a85e">${fmt(k.subPago)}</td><td class="${k.lucroExtra>0?'v-green':k.lucroExtra<0?'v-red':''}">${k.lucroExtra!==0?(k.lucroExtra>0?'+':'')+fmt(k.lucroExtra):fmt(0)}</td></tr>
+    </table>
+  </div>
+
   ${idealBlock}
+
   <div class="panel">
     <div class="panel-title">De onde vem o dinheiro — para onde vai cada parte do que o cliente paga</div>
-    <div class="res-row"><span class="rlabel">Custo de produção (vai p/ fornecedores e equipe)</span><span class="rval">${fmt(k.sub)}</span></div>
+    <div class="res-row"><span class="rlabel">Pago a profissionais e fornecedores</span><span class="rval" style="color:#e0a85e">${fmt(k.subPago)}</span></div>
     <div class="res-row"><span class="rlabel">Impostos / NF (vai p/ o governo)</span><span class="rval">${fmt(k.impVal)}</span></div>
     <div class="res-row"><span class="rlabel" style="color:var(--green)">Taxa da Produtora (fica com a Stage)</span><span class="rval v-green">${fmt(k.taxaVal)}</span></div>
+    ${k.lucroExtra!==0?`<div class="res-row"><span class="rlabel" style="color:var(--green)">Ganho extra — cobrado menos pago (fica com a Stage)</span><span class="rval ${k.lucroExtra>0?'v-green':'v-red'}">${k.lucroExtra>0?'+':''}${fmt(k.lucroExtra)}</span></div>`:''}
     ${S.fiscal.desconto>0?`<div class="res-row"><span class="rlabel">Desconto concedido</span><span class="rval v-red">−${fmt(k.descVal)}</span></div>`:''}
     <div class="res-row"><span class="rlabel" style="color:var(--gold)">Total a cobrar</span><span class="rval" style="color:var(--gold)">${fmt(k.totalCalc)}</span></div>
   </div>
@@ -830,6 +1037,7 @@ function renderAnalise(){
     <div class="kpi-grid">
       <div class="kpi"><div class="k-label">Lucro real</div><div class="k-val ${lucroReal>0?'v-green':'v-red'}">${fmt(lucroReal)}</div></div>
       <div class="kpi"><div class="k-label">Taxa da Produtora</div><div class="k-val">${pct(k.t)}</div></div>
+      <div class="kpi"><div class="k-label">Ganho extra</div><div class="k-val ${k.lucroExtra>0?'v-green':k.lucroExtra<0?'v-red':''}">${fmt(k.lucroExtra)}</div></div>
       <div class="kpi"><div class="k-label">Verba negociada</div><div class="k-val">${fmt(k.verba)}</div></div>
     </div>
   </div>`;
@@ -848,18 +1056,20 @@ function renderSaude(){
   const deixadoNaMesa = k.lucroIdeal - lucroReal;
 
   const kpisReal=[
-    ["Subtotal de produção",fmt(k.sub),''],
-    ["Taxa da Produtora (lucro bruto)",fmt(k.taxaVal),'v-green'],
+    ["Subtotal cobrado",fmt(k.sub),''],
+    ["Subtotal pago a profissionais",fmt(k.subPago),'v-yellow'],
+    ["Taxa da Produtora",fmt(k.taxaVal),'v-green'],
+    ["Ganho extra (cobrado−pago)",fmt(k.lucroExtra),k.lucroExtra>0?'v-green':k.lucroExtra<0?'v-red':''],
     ["Impostos (repassado ao cliente)",fmt(k.impVal),''],
     ["Total a cobrar",fmt(k.totalCalc),''],
     ["Verba negociada",fmt(k.verba),''],
-    ["Custo + imposto a repassar",fmt(k.custoMaisImposto),''],
     ["Lucro real da Stage",fmt(lucroReal),lucroCls],
     ["Margem real",pct(margemReal),lucroCls],
   ];
   const kpisIdeal=[
     ["Subtotal ideal",fmt(k.subIdeal),''],
-    ["Taxa da Produtora (lucro ideal)",fmt(k.taxaIdealVal),'v-green'],
+    ["Taxa da Produtora (ideal)",fmt(k.taxaIdealVal),'v-green'],
+    ["Ganho extra (ideal)",fmt(k.lucroIdealExtra),'v-green'],
     ["Total ideal a cobrar",fmt(k.totalIdeal),''],
     ["Lucro ideal da Stage",fmt(k.lucroIdeal),'v-green'],
     ["Margem ideal",pct(k.margemIdeal),'v-green'],
@@ -939,11 +1149,11 @@ function renderSaude(){
     <div class="kpi-grid">
       ${kpisIdeal.map(([l,v,c])=>`<div class="kpi" style="border-color:#2a2410"><div class="k-label">${l}</div><div class="k-val ${c}">${v}</div></div>`).join('')}
     </div>
-    ${deixadoNaMesa>0.5?`<div class="callout" style="border-color:#3a3320;background:#15120a;color:#cbb878;margin-top:14px;margin-bottom:0">No cenário ideal, o lucro seria <b>${fmt(k.lucroIdeal)}</b>. Hoje você fica com <b>${fmt(lucroReal)}</b> — ou seja, <b>${fmt(deixadoNaMesa)}</b> de diferença entre o que você gostaria de cobrar e o que está fechando. ${k.folgaDisponivel>0.5?'Use a reserva de segurança na aba Dados para recuperar parte disso.':''}</div>`:''}
+    ${deixadoNaMesa>0.5?`<div class="callout" style="border-color:#3a3320;background:#15120a;color:#cbb878;margin-top:14px;margin-bottom:0">No cenário ideal, o lucro seria <b>${fmt(k.lucroIdeal)}</b>. Hoje você fica com <b>${fmt(lucroReal)}</b> — ou seja, <b>${fmt(deixadoNaMesa)}</b> de diferença entre o que você gostaria de cobrar e o que está fechando. ${k.folgaDisponivel>0.5?'Use o botão "Ajustar até a verba" na aba Dados para subir o que cobra.':''}</div>`:''}
   </div>
 
   <div class="callout">
-    <b>Seu lucro é a Taxa da Produtora.</b> Você cobra do cliente o que a produção custa (${fmt(k.sub)}) e repassa o imposto (${fmt(k.impVal)}) por cima. O que sobra de fato para a Stage é a taxa de ${S.fiscal.taxa}% ${usaVerba?`— mas como a verba (${fmt(k.verba)}) é menor que o ideal, o lucro real fica em ${fmt(lucroReal)}.`:`= <b>${fmt(k.taxaVal)}</b>.`}
+    <b>Seu lucro tem duas fontes:</b> a Taxa da Produtora (${pct(k.t)} sobre o que é cobrado) ${k.lucroExtra!==0?`mais o ganho extra de <b>${fmt(k.lucroExtra)}</b> (diferença entre o que cobra do cliente e o que paga ao profissional)`:''}. O imposto é repassado ao cliente, não toca a Stage. ${usaVerba?`Como a verba (${fmt(k.verba)}) é menor que o total calculado, o lucro real fica em ${fmt(lucroReal)}.`:`Lucro total: <b>${fmt(k.lucro)}</b>.`}
   </div>`;
 }
 
@@ -991,7 +1201,7 @@ function renderAjuste(){
   if(modoSubida){
     header = "Ajuste de escopo — aproveitar a folga da verba (subir até o ideal)";
     metaCard = `<div class="kpi"><div class="k-label">Folga disponível p/ subir</div><div class="k-val v-green">${fmt(folgaParaSubir*(1+k.t+k.i))}</div></div>`;
-    callout = `<div class="callout" style="border-color:#2a5c34;background:#0f1f12;color:#a8d0b0">💰 A verba do cliente (${fmt(S.fiscal.verba)}) é <b>maior</b> que o total atual (${fmt(k.totalCalc)}). Você tem espaço para subir os itens em direção ao Valor Ideal — recuperando até <b>${fmt(folgaParaSubir*(1+k.t+k.i))}</b> de receita. Documente abaixo quais itens subiram e use isso como reserva de segurança. <b>Atalho:</b> a aba Dados tem um slider de reserva que faz isso automaticamente.</div>`;
+    callout = `<div class="callout" style="border-color:#2a5c34;background:#0f1f12;color:#a8d0b0">💰 A verba do cliente (${fmt(S.fiscal.verba)}) é <b>maior</b> que o total atual (${fmt(k.totalCalc)}). Você tem espaço para subir os itens em direção ao Valor Ideal — recuperando até <b>${fmt(folgaParaSubir*(1+k.t+k.i))}</b> de receita. Documente abaixo quais itens subiram. <b>Atalho:</b> a aba Dados tem o botão "Ajustar até a verba" que faz isso automaticamente.</div>`;
   } else if(modoCorte){
     header = "Ajuste de escopo — adequar à verba (cortar o excedente)";
     metaCard = `<div class="kpi"><div class="k-label">Meta de corte na produção</div><div class="k-val v-yellow">${fmt(metaCorte)}</div></div>`;
@@ -1104,23 +1314,29 @@ function renderAll(){
 }
 function upd(cat,idx,field,val){
   const it=S.items[cat][idx];
-  it[field] = (field==='q'||field==='v'||field==='vi') ? num(val) : val;
+  it[field] = (field==='q'||field==='v'||field==='vi'||field==='cp') ? num(val) : val;
   save();
   // live-update the row total + category total + tab dot, without re-rendering (keeps input focus)
   liveUpdateDados();
 }
 function liveUpdateDados(){
   // update each category total label
-  CATS.forEach((c)=>{
+  cats().forEach((c)=>{
     const el=document.querySelector(`#tot-${c.id}`);
     const t=catTotal(c.id);
     if(el){el.textContent=fmt(t);el.className='cat-total '+(t?'':'zero');}
   });
-  // update each row total
-  CATS.forEach((c)=>{
+  // update each row total + ganho extra
+  cats().forEach((c)=>{
     (S.items[c.id]||[]).forEach((it,idx)=>{
-      const el=document.querySelector(`#rowtot-${c.id}-${idx}`);
-      if(el)el.textContent=fmt(it.q*it.v);
+      const elT=document.querySelector(`#rowtot-${c.id}-${idx}`);
+      if(elT)elT.textContent=fmt(it.q*it.v);
+      const elE=document.querySelector(`#rowextra-${c.id}-${idx}`);
+      if(elE){
+        const ganho=(it.q||0)*((it.v||0)-(it.cp!==undefined?it.cp:it.v||0));
+        elE.textContent = ganho!==0 ? (ganho>0?'+':'')+fmt(ganho) : '—';
+        elE.style.color = ganho>0?'var(--green)':ganho<0?'var(--red)':'#555';
+      }
     });
   });
   // update result panel
@@ -1131,15 +1347,74 @@ function refreshResultPanel(){
   const el=document.getElementById('resultPanel');
   if(el)el.innerHTML=resultPanelHTML();
 }
+// ── Fechar o total num valor redondo, calculando o desconto% necessário ──
+function fecharEmValor(val){
+  const alvo = num(val);
+  const sub = subtotal();
+  if(sub<=0) return;
+  if(alvo<=0){ // limpar desconto e alvo
+    S.fiscal.desconto = 0; S.fiscal.fecharEm = 0; save(); renderDados(); return;
+  }
+  const t=S.fiscal.taxa/100, i=S.fiscal.imposto/100;
+  // total = sub*(1+t+i-d) = alvo  =>  d = (1+t+i) - alvo/sub
+  const d = (1+t+i) - (alvo/sub);
+  const descPct = d*100;
+  if(descPct < 0){
+    alert("Para chegar em "+fmt(alvo)+" seria preciso AUMENTAR o preço (desconto negativo). Use o botão 'Subir Valor Cobrado até a verba' para isso, ou ajuste os itens.");
+    return;
+  }
+  S.fiscal.desconto = Math.round(descPct*100)/100; // % para exibição/cálculo do painel
+  S.fiscal.fecharEm = alvo;                         // alvo exato para a Folha de Rosto
+  save();
+  renderDados();
+}
+
+// ── Simulação: ajustar Valor Cobrado até bater na verba (mantém Pago fixo) ──
+let simAjuste = null; // {fator, novoSub, novoTotal, novoLucro, novoExtra} ou null
+
+function simularAjusteVerba(){
+  const k=calc();
+  if(!(S.fiscal.verba>0)){ alert("Defina a Verba Negociada primeiro."); return; }
+  const subDesejado = S.fiscal.verba/(1+k.t+k.i-k.d);
+  const fator = k.sub>0 ? subDesejado/k.sub : 1;
+  // Trava de segurança: só sobe. Se precisar baixar (fator<1), não aplica — recomenda cortar escopo.
+  if(fator < 1){ return; }
+  const novoSub = subDesejado;
+  const novoTotal = novoSub*(1+k.t+k.i-k.d);
+  const novoExtra = novoSub - k.subPago;
+  const novoLucro = novoSub*k.t + novoExtra - novoSub*k.d;
+  simAjuste = {fator, novoSub, novoTotal, novoLucro, novoExtra, subAntigo:k.sub, totalAntigo:k.totalCalc, lucroAntigo:k.lucro};
+  refreshResultPanel();
+}
+
+function aplicarAjusteVerba(){
+  if(!simAjuste) return;
+  const f = simAjuste.fator;
+  cats().forEach(c=>{
+    (S.items[c.id]||[]).forEach(it=>{
+      it.v = Math.round((it.v||0)*f*100)/100; // sobe só o cobrado
+      // cp (pago) permanece intacto
+    });
+  });
+  simAjuste = null;
+  save();
+  renderDados();
+}
+
+function cancelarAjusteVerba(){ simAjuste=null; refreshResultPanel(); }
+
 function updFiscal(field,val){
   S.fiscal[field]=num(val);
+  if(field==='desconto') S.fiscal.fecharEm = 0; // desconto manual cancela o alvo redondo
   save();
   refreshResultPanel();
   renderTabs();
 }
 function toggleCat(id){S.openCats[id]=!S.openCats[id];save();renderDados();}
 function toggleIdeal(){S.showIdeal=!S.showIdeal;save();renderDados();}
-function addItem(cat){if(!S.items[cat])S.items[cat]=[];S.items[cat].push({d:"",q:1,vi:0,v:0,i:""});S.openCats[cat]=true;save();renderDados();}
+function togglePago(){S.showPago=!S.showPago;save();renderDados();}
+function toggleEmpty(){S.hideEmpty=!S.hideEmpty;save();renderDados();}
+function addItem(cat){if(!S.items[cat])S.items[cat]=[];S.items[cat].push({d:"",q:1,vi:0,v:0,cp:0,i:""});S.openCats[cat]=true;save();renderDados();}
 function delItem(cat,idx){S.items[cat].splice(idx,1);save();renderDados();}
 function updAj(idx,field,val){S.ajustes[idx][field]=(['qo','vo','qa','va'].includes(field))?num(val):val;save();renderAjuste();}
 function addAj(){S.ajustes.push({cat:"",item:"",qo:0,vo:0,qa:0,va:0,obs:""});save();renderAjuste();}

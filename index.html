@@ -7,7 +7,7 @@
 <style>
   :root{
     /* Identidade Stage Films */
-    --bg:#222e28;            /* verde escuro Stage */
+    --bg:#384f44;            /* verde escuro Stage */
     --panel:#ffffff;
     --panel2:#f7f2e3;
     --line:#e8e0c8;
@@ -107,8 +107,8 @@
   .cfg-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
   .cfg-field label{display:block;font-size:10px;color:var(--txt-dim);text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px}
   .cfg-field .hint{color:var(--txt-dim);text-transform:none;letter-spacing:0}
-  .cfg-field input{width:100%;background:var(--input-bg);border:1px solid var(--line);border-bottom:2px solid var(--gold);border-radius:4px;color:var(--blue-in);font:inherit;font-size:16px;font-weight:700;padding:8px 10px;text-align:right}
-  .cfg-field input:focus{outline:none;border-color:var(--gold-soft)}
+  .cfg-field input{width:100%;background:var(--input-bg);border:1px solid var(--line);border-bottom:2px solid var(--line-strong);border-radius:6px;color:var(--txt-2);font:inherit;font-size:14px;font-weight:600;padding:8px 10px;text-align:right}
+  .cfg-field input:focus{outline:none;border-bottom-color:var(--stage-yellow)}
   /* Result rows */
   .res-row{display:flex;justify-content:space-between;align-items:baseline;padding:9px 0;border-bottom:1px solid var(--line)}
   .res-row .rlabel{font-size:11px;color:var(--txt-dim);text-transform:uppercase;letter-spacing:.04em}
@@ -214,7 +214,7 @@
   /* Print: only folha de rosto */
   /* Folha de Rosto — 6 blocos */
   .rosto-bloco{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:18px 20px;margin-bottom:14px}
-  .rosto-h{font-size:13px;font-weight:600;color:var(--gold);margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid var(--line);letter-spacing:.02em}
+  .rosto-h{font-size:13px;font-weight:700;color:var(--txt-2);margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid var(--line-strong);letter-spacing:.02em}
   .rosto-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px 18px}
   .rosto-inp{width:100%;background:var(--input-bg);border:1px solid var(--line);border-radius:6px;color:var(--txt);font:inherit;font-size:13px;padding:8px 10px}
   .rosto-inp:focus{outline:none;border-color:var(--gold)}
@@ -1076,10 +1076,11 @@ function renderDados(){
 
 function resultPanelHTML(){
   const k=calc(), f=S.fiscal;
-  const temFolga = k.gapVerba > 0.5;
-  const temFalta = k.gapVerba < -0.5;
   const usaVerba = f.verba>0;
-  // [10] nenhum item ativo
+  const totalFinal = usaVerba ? f.verba : k.totalCalc;
+  const temConcessao = k.concessaoComercial>0.5;
+  const temDesconto = f.desconto>0;
+
   if(!temItemAtivo()){
     return `<div class="panel-title">Resultado</div>
       <div style="padding:28px 18px;text-align:center;color:var(--txt-dim);line-height:1.7">
@@ -1088,72 +1089,94 @@ function resultPanelHTML(){
         <div style="font-size:11px;margin-top:6px">Defina quantidade maior que zero para iniciar os cálculos.</div>
       </div>`;
   }
-  // Total Final = a verba quando existir, senão o total ideal
-  const totalFinal = usaVerba ? f.verba : k.totalCalc;
+
+  const impostoNF = totalFinal * k.i;
+  const custoTotal = k.custoReal + impostoNF;
+  const margemLiq = totalFinal>0 ? k.lucroLiquido/totalFinal : 0;
+  const margemPct = (margemLiq*100).toFixed(1);
+
+  const secTitle = (t)=>`<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--txt-3);margin:16px 0 8px;padding-top:10px;border-top:1px solid var(--line)">${t}</div>`;
+  const row = (label,val,opts)=>{
+    const o=opts||{};
+    return `<div style="display:flex;justify-content:space-between;align-items:baseline;padding:4px 0">
+      <span style="font-size:${o.big?'13':'12'}px;${o.dim?'color:var(--txt-dim);':'color:var(--txt-2);'}${o.bold?'font-weight:700;':''}">${o.prefix||''}${label}</span>
+      <span style="font-size:${o.big?'16':'13'}px;font-weight:${o.bold?'800':'500'};font-variant-numeric:tabular-nums;${o.color?'color:'+o.color+';':''}">${val}</span>
+    </div>`;
+  };
+  const divider = `<div style="border-top:2px solid var(--line-strong);margin:8px 0"></div>`;
 
   return `<div class="panel-title">Resultado</div>
 
-    <div style="background:#ffffff;border:1px solid var(--line);border:1px solid var(--line);border-radius:8px;padding:14px 16px;margin:10px 0">
-      <div style="font-size:10px;color:var(--txt-dim);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px">Total Ideal a Cobrar</div>
-      <div style="font-size:26px;font-weight:700;font-family:'DM Sans',sans-serif;color:var(--gold)">${fmt(k.totalCalc)}</div>
-      ${usaVerba?`<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--line)">
-        <div style="font-size:10px;color:var(--txt-dim);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px">Meta de Faturamento / Total Final</div>
-        <div style="font-size:22px;font-weight:700;font-family:'DM Sans',sans-serif;color:${temFalta?'#e0a85e':'var(--green)'}">${fmt(totalFinal)}</div>
-        <div style="font-size:10px;color:var(--txt-dim);margin-top:3px">${temFolga?'Folga de '+fmt(k.gapVerba)+' — dá pra cobrar mais':temFalta?'Abaixo do ideal em '+fmt(-k.gapVerba)+' — o lucro usa este cenário':'Bateu certinho no ideal'}</div>
-      </div>`:''}
+    <!-- CARD META / TOTAL -->
+    <div style="background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:16px 18px;margin-bottom:14px">
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--txt-dim);font-weight:600;margin-bottom:4px">${usaVerba?'Meta de Faturamento':'Total Ideal a Cobrar'}</div>
+      <div style="font-size:26px;font-weight:800;font-family:'DM Sans',sans-serif;color:var(--txt);letter-spacing:-.02em">${fmt(totalFinal)}</div>
+      ${usaVerba && Math.abs(k.gapVerba)>0.5?`<div style="font-size:10px;color:var(--txt-dim);margin-top:4px">Total Ideal: ${fmt(k.totalCalc)}</div>`:''}
     </div>
 
-    <div class="res-row"><span class="rlabel">Receita do Cliente (itens)</span><span class="rval">${fmt(k.receitaCliente)}</span></div>
-    <div class="res-row"><span class="rlabel sub">↳ Fee da Produtora (${f.taxa}%)</span><span class="rval" style="color:var(--green)">${fmt(k.taxaVal)}</span></div>
-    <div class="res-row"><span class="rlabel sub">↳ Impostos / NF (${f.imposto}%) — repassado</span><span class="rval">${fmt(k.impVal)}</span></div>
-    ${f.desconto>0?`<div class="res-row"><span class="rlabel sub">↳ Desconto (${f.desconto}%)</span><span class="rval v-red">−${fmt(k.descVal)}</span></div>`:''}
-    <div class="res-row"><span class="rlabel">Custo Real (Stage paga)</span><span class="rval" style="color:#e0a85e">${fmt(k.custoReal)}</span></div>
-    <div class="res-row"><span class="rlabel">Resultado dos Itens</span><span class="rval ${k.resultadoOper>0?'v-green':k.resultadoOper<0?'v-red':''}">${fmt(k.resultadoOper)}</span></div>
+    <!-- OPERAÇÃO: Receita - Custo = Resultado -->
+    ${secTitle('Operação')}
+    ${row('Receita dos Itens','+ '+fmt(k.receitaCliente),{bold:true})}
+    <div style="font-size:9px;color:var(--txt-faint);padding:0 0 4px;margin-top:-2px">Soma dos valores cobrados ao cliente (sem fee e impostos)</div>
+    ${row('Custo Operacional','− '+fmt(k.custoReal),{bold:true,color:'var(--red)'})}
+    ${divider}
+    ${row('Resultado dos Itens',(k.resultadoOper>=0?'+ ':'')+fmt(k.resultadoOper),{bold:true,big:true,color:k.resultadoOper>=0?'var(--stage-green)':'var(--red)'})}
 
-    ${(() => {
-      const temConcessao = f.desconto>0 || k.concessaoComercial>0.5;
-      // Card principal: Lucro Bruto (ou Lucro Líquido quando há concessão impactando)
-      return `
-    <div class="res-big lucro" style="border-color:${k.lucroBruto>0?'#90c0a0':'#d09090'}"><div class="rb-label">Lucro Bruto Stage</div><div class="rb-val ${k.lucroBruto>0?'v-green':'v-red'}">${fmt(k.lucroBruto)}</div></div>
+    <!-- CUSTOS TOTAIS -->
+    ${secTitle('Custos do Projeto')}
+    ${row('Custo Operacional',fmt(k.custoReal))}
+    ${row('Impostos / NF',fmt(impostoNF),{dim:true})}
+    <div style="font-size:9px;color:var(--txt-faint);padding:0 0 2px;margin-top:-2px">${f.imposto}% sobre ${usaVerba?'Meta de Faturamento':'Total Ideal'}</div>
+    ${divider}
+    ${row('Custo Total do Projeto',fmt(custoTotal),{bold:true})}
 
-    <div style="margin-top:10px;padding:12px 14px;background:var(--panel2);border:1px solid var(--line);border-radius:8px;font-size:11px;line-height:1.9">
-      <div style="color:var(--txt-dim);text-transform:uppercase;letter-spacing:.06em;font-size:9px;margin-bottom:6px">Composição do lucro</div>
-      <div style="display:flex;justify-content:space-between"><span>Fee da Produtora</span><span style="color:var(--green)">${fmt(k.taxaVal)}</span></div>
-      <div style="display:flex;justify-content:space-between"><span>Resultado dos Itens</span><span class="${k.resultadoOper>0?'v-green':k.resultadoOper<0?'v-red':''}">${k.resultadoOper>=0?'+':''}${fmt(k.resultadoOper)}</span></div>
-      <div style="display:flex;justify-content:space-between;border-top:1px solid var(--line);margin-top:6px;padding-top:6px;font-weight:600"><span>Lucro Bruto Stage</span><span class="${k.lucroBruto>0?'v-green':'v-red'}">${fmt(k.lucroBruto)}</span></div>
-      ${temConcessao?`
-        ${f.desconto>0?`<div style="display:flex;justify-content:space-between;margin-top:4px"><span>Desconto concedido</span><span class="v-red">−${fmt(k.descVal)}</span></div>`:''}
-        ${k.concessaoComercial>0.5?`<div style="display:flex;justify-content:space-between"><span>Concessões comerciais</span><span class="v-red">−${fmt(k.concessaoComercial)}</span></div>`:''}
-        <div style="display:flex;justify-content:space-between;border-top:1px solid var(--gold);margin-top:6px;padding-top:6px;font-weight:700"><span style="color:var(--gold)">Lucro Líquido Stage</span><span class="${k.lucroLiquido>0?'v-green':'v-red'}" style="font-weight:700">${fmt(k.lucroLiquido)}</span></div>
-      `:''}
-    </div>`;
-    })()}
+    <!-- LUCRO -->
+    ${secTitle('Lucro da Stage')}
+    ${row('Fee da Produtora ('+f.taxa+'%)','+'+fmt(k.taxaVal),{color:'var(--stage-green)'})}
+    ${row('Resultado dos Itens',(k.resultadoOper>=0?'+':'')+fmt(k.resultadoOper),{color:k.resultadoOper>=0?'var(--stage-green)':'var(--red)'})}
+    ${divider}
+    ${row('Lucro Bruto Stage',fmt(k.lucroBruto),{bold:true,big:true,color:k.lucroBruto>0?'var(--stage-green)':'var(--red)'})}
 
+    ${(temConcessao||temDesconto)?`
+      <!-- CONCESSÃO -->
+      <div style="margin-top:12px;padding:12px 14px;background:var(--stage-yellow-bg);border:1px solid #e6c870;border-radius:8px">
+        ${temConcessao?row('Concessão Comercial','− '+fmt(k.concessaoComercial),{color:'var(--red)',bold:true}):''}
+        ${temDesconto?row('Desconto concedido','− '+fmt(k.descVal),{color:'var(--red)'}):''}
+        <div style="border-top:2px solid var(--stage-yellow);margin:8px 0"></div>
+        ${row('Lucro Líquido Stage',fmt(k.lucroLiquido),{bold:true,big:true,color:k.lucroLiquido>0?'var(--stage-green)':'var(--red)'})}
+      </div>
+    ` : ''}
+
+    <div style="text-align:right;font-size:11px;color:var(--txt-dim);margin-top:8px;font-weight:600">Margem líquida: ${margemPct}%</div>
+
+    <!-- ALERTA -->
     ${usaVerba && k.gapVerba>0.5 ? `
     <div style="margin-top:16px">
       ${!simAjuste ? `
-      <button class="btn" onclick="simularAjusteVerba()" style="width:100%;background:var(--gold);color:#0d0d0d;border:none;padding:11px;border-radius:8px;font-weight:600;font-size:12px;cursor:pointer">⚡ Ajustar valores até a meta (${fmt(f.verba)})</button>
-      <div style="margin-top:8px;font-size:10px;color:var(--txt-dim);line-height:1.5">A Meta de Faturamento é maior que o total ideal. Isso ajusta o que você cobra do cliente (o preço de venda), mantendo o Custo Stage fixo, até bater na meta — a diferença vira resultado. Você confere antes de aplicar.</div>
+      <button class="btn" onclick="simularAjusteVerba()" style="width:100%;background:var(--stage-yellow);color:#1a1a1a;border:none;padding:11px;border-radius:8px;font-weight:600;font-size:12px;cursor:pointer">⚡ Ajustar valores até a meta (${fmt(f.verba)})</button>
       ` : `
-      <div style="padding:16px;background:#fdf6e3;border:1px solid var(--gold);border-radius:8px">
-        <div style="font-size:11px;color:var(--gold);text-transform:uppercase;letter-spacing:.08em;margin-bottom:12px;font-weight:600">⚡ Simulação — ajuste até a meta</div>
+      <div style="padding:16px;background:var(--stage-yellow-bg);border:1px solid #e6c870;border-radius:8px">
+        <div style="font-size:11px;color:var(--stage-yellow-dark);text-transform:uppercase;letter-spacing:.08em;margin-bottom:12px;font-weight:600">⚡ Simulação — ajuste até a meta</div>
         <div style="display:grid;grid-template-columns:1fr auto auto;gap:8px 14px;align-items:center;font-size:11px;margin-bottom:4px">
-          <span></span><span style="color:var(--txt-dim);font-size:9px;text-transform:uppercase;text-align:right">Atual</span><span style="color:var(--gold);font-size:9px;text-transform:uppercase;text-align:right">Projetado</span>
-          <span class="rlabel">Total a cobrar</span><span style="text-align:right">${fmt(simAjuste.totalAntigo)}</span><span style="text-align:right;color:var(--gold);font-weight:600">${fmt(simAjuste.novoTotal)}</span>
-          <span class="rlabel" style="color:var(--green)">Lucro Bruto</span><span style="text-align:right" class="v-green">${fmt(simAjuste.lucroAntigo)}</span><span style="text-align:right;font-weight:700" class="v-green">${fmt(simAjuste.novoLucro)}</span>
+          <span></span><span style="color:var(--txt-dim);font-size:9px;text-transform:uppercase;text-align:right">Atual</span><span style="color:var(--stage-yellow-dark);font-size:9px;text-transform:uppercase;text-align:right">Projetado</span>
+          <span>Total a cobrar</span><span style="text-align:right">${fmt(simAjuste.totalAntigo)}</span><span style="text-align:right;color:var(--stage-yellow-dark);font-weight:600">${fmt(simAjuste.novoTotal)}</span>
+          <span style="color:var(--stage-green)">Lucro Bruto</span><span style="text-align:right" class="v-green">${fmt(simAjuste.lucroAntigo)}</span><span style="text-align:right;font-weight:700" class="v-green">${fmt(simAjuste.novoLucro)}</span>
         </div>
-        <div class="res-row" style="border:none;padding:5px 0"><span class="rlabel">Cada valor cobrado muda em</span><span class="rval ${simAjuste.fator>=1?'v-green':'v-red'}">${simAjuste.fator>=1?'+':''}${pct(simAjuste.fator-1)}</span></div>
         <div style="display:flex;gap:8px;margin-top:14px">
-          <button class="btn" onclick="aplicarAjusteVerba()" style="flex:1;background:var(--green);color:#0d0d0d;border:none;padding:10px;border-radius:6px;font-weight:600;font-size:12px;cursor:pointer">✓ Aplicar nos itens</button>
-          <button class="btn btn-ghost" onclick="cancelarAjusteVerba()" style="flex:1;padding:10px;border-radius:6px;font-size:12px;cursor:pointer">Cancelar</button>
+          <button class="btn" onclick="aplicarAjusteVerba()" style="flex:1;background:var(--stage-green);color:#fff;border:none;padding:10px;border-radius:6px;font-weight:600;font-size:12px;cursor:pointer">✓ Aplicar</button>
+          <button class="btn btn-ghost" onclick="cancelarAjusteVerba()" style="flex:1;padding:10px;border-radius:6px;font-size:12px">Cancelar</button>
         </div>
       </div>
       `}
     </div>
     ` : usaVerba && k.gapVerba < -0.5 ? `
-    <div style="margin-top:16px;padding:14px 16px;background:#fdf0ef;border:1px solid #d09090;border-radius:8px">
-      <div style="font-size:11px;color:#e06a5e;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;font-weight:600">⚠ Meta abaixo do ideal</div>
-      <div style="font-size:11px;color:#8a3030;line-height:1.6">O total ideal (${fmt(k.totalCalc)}) está <b>${fmt(-k.gapVerba)} acima</b> da verba (${fmt(f.verba)}). Essa diferença vira concessão comercial e reduz o lucro. Reveja o escopo na aba <b>Ajuste de Escopo</b> se quiser proteger a margem.</div>
+    <div style="margin-top:16px;padding:14px 16px;background:var(--stage-yellow-bg);border:1px solid #e6c870;border-radius:8px">
+      <div style="font-size:11px;color:var(--stage-yellow-dark);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;font-weight:700">Concessão Comercial Registrada</div>
+      <div style="font-size:12px;color:var(--txt-2);line-height:1.7">
+        <div style="display:flex;justify-content:space-between"><span>Valor Ideal</span><span>${fmt(k.totalCalc)}</span></div>
+        <div style="display:flex;justify-content:space-between"><span>Meta Aprovada</span><span>${fmt(f.verba)}</span></div>
+        <div style="display:flex;justify-content:space-between;font-weight:600;margin-top:4px"><span>Impacto no Lucro</span><span style="color:var(--red)">−${fmt(-k.gapVerba)}</span></div>
+      </div>
     </div>` : ''}`;
 }
 
@@ -1248,10 +1271,11 @@ function renderRosto(){
           <tr class="fiscal"><td>Fee da Produtora + Impostos</td><td class="r">${fmt(taxaImp)}</td></tr>
           ${condecine>0.5?`<tr class="fiscal"><td>Taxa Condecine</td><td class="r">${fmt(condecine)}</td></tr>`:''}
           ${descontoVal>0.5?`<tr class="fiscal"><td>Desconto negociado</td><td class="r" style="color:#b00">−${fmt(descontoVal)}</td></tr>`:''}
+          ${(f.verba>0 && f.verba<totalBase-0.5)?`<tr class="fiscal"><td>Concessão Comercial</td><td class="r" style="color:#b00">−${fmt(totalBase - f.verba + (descontoVal>0.5?descontoVal:0))}</td></tr>`:''}
         </table>
         <div class="fd-total">
           <div class="fd-total-label">Investimento Total</div>
-          <div class="fd-total-val">${fmt(totalFinal)}</div>
+          <div class="fd-total-val">${fmt(f.verba>0 ? f.verba : totalFinal)}</div>
         </div>
       </div>
     </div>`;
@@ -1300,7 +1324,7 @@ function renderAnalise(){
 
     <!-- TABELA POR CATEGORIA -->
     <div style="margin-bottom:20px">
-      <div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--txt-dim);margin-bottom:10px">Receita × Custo Real × Resultado por categoria</div>
+      <div style="font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--txt-3);margin-bottom:10px;font-weight:700">Receita × Custo Real × Resultado por categoria</div>
       <table style="width:100%;border-collapse:collapse;font-size:12px">
         <tr style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--txt-dim)"><th style="text-align:left;padding:10px 4px">Categoria</th><th style="text-align:right;padding:10px 4px">Receita Cliente</th><th style="text-align:right;padding:10px 4px">Custo Real</th><th style="text-align:right;padding:10px 4px">Resultado</th></tr>
         ${rowsCat}
@@ -1311,7 +1335,7 @@ function renderAnalise(){
     <!-- DISTRIBUIÇÃO DO ORÇAMENTO -->
     ${distRows?`
     <div style="margin-bottom:24px">
-      <div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--txt-dim);margin-bottom:12px">Distribuição do Orçamento</div>
+      <div style="font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--txt-3);margin-bottom:12px;font-weight:700">Distribuição do Orçamento</div>
       ${distRows}
     </div>`:''}
 
@@ -1324,7 +1348,7 @@ function renderAnalise(){
 
     <!-- COMPOSIÇÃO DO RESULTADO -->
     <div style="padding:16px 18px;background:var(--panel2);border:1px solid var(--line);border-radius:10px;font-size:12px;line-height:2">
-      <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--txt-dim);margin-bottom:8px">Composição do resultado</div>
+      <div style="font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--txt-3);margin-bottom:8px;font-weight:700">Composição do resultado</div>
       <div style="display:flex;justify-content:space-between"><span>Fee da Produtora (${f.taxa}%)</span><span style="color:var(--green)">${fmt(k.taxaVal)}</span></div>
       <div style="display:flex;justify-content:space-between"><span>Resultado dos Itens</span><span class="${k.resultadoOper>0?'v-green':k.resultadoOper<0?'v-red':''}">${k.resultadoOper>=0?'+':''}${fmt(k.resultadoOper)}</span></div>
       <div style="display:flex;justify-content:space-between;border-top:1px solid var(--line);margin-top:6px;padding-top:6px;font-weight:700"><span>Lucro Bruto Stage</span><span class="${k.lucroBruto>0?'v-green':'v-red'}">${fmt(k.lucroBruto)}</span></div>
@@ -1423,7 +1447,7 @@ function renderSaude(){
 
     <!-- 5. RESUMO -->
     <div style="padding:14px 16px;background:var(--panel2);border:1px solid var(--line);border-radius:10px;font-size:12px;line-height:2">
-      <div style="font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--txt-dim);margin-bottom:6px">Resumo</div>
+      <div style="font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--txt-3);margin-bottom:8px;font-weight:700">Resumo</div>
       <div style="display:flex;justify-content:space-between"><span>Fee da Produtora</span><span>${fmt(k.taxaVal)}</span></div>
       <div style="display:flex;justify-content:space-between"><span>Resultado dos Itens</span><span class="${k.resultadoOper>=0?'v-green':'v-red'}">${k.resultadoOper>=0?'+':''}${fmt(k.resultadoOper)}</span></div>
       ${k.descVal>0.5?`<div style="display:flex;justify-content:space-between"><span>Desconto concedido</span><span class="v-red">−${fmt(k.descVal)}</span></div>`:''}
@@ -1510,7 +1534,7 @@ function renderAjuste(){
     ${modoCorte ? `
     <!-- EXPLICAÇÃO DA CASCATA (pontos 2 e 3) -->
     <div style="background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:16px 18px;margin-bottom:18px;font-size:12px;line-height:1.8">
-      <div style="font-size:11px;color:var(--gold);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px;font-weight:600">Impacto Automático dos Cortes</div>
+      <div style="font-size:12px;color:var(--txt-2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px;font-weight:700">Impacto Automático dos Cortes</div>
       <div style="color:var(--txt-dim);margin-bottom:14px">Para atingir a Meta de <b style="color:var(--txt)">${fmt(f.verba)}</b>:</div>
       <div style="display:flex;flex-direction:column;gap:2px;font-size:12px">
         <div style="display:flex;justify-content:space-between;padding:8px 12px;background:rgba(0,0,0,.02);border-radius:6px"><span style="font-weight:600">Corte em Produção</span><span style="font-weight:600">${fmt(metaCorte)}</span></div>
@@ -1534,7 +1558,7 @@ function renderAjuste(){
 
     <!-- TABELA DE AJUSTES (ponto 4) -->
     ${modoCorte ? `
-    <div style="margin-bottom:6px;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--txt-dim)">Itens ajustados</div>
+    <div style="margin-bottom:6px;font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--txt-3);font-weight:700">Itens ajustados</div>
     <table class="aj-table">
       <tr><th>Categoria</th><th>Item</th><th>Justificativa</th><th style="text-align:right">Valor Original</th><th style="text-align:right">Novo Valor</th><th style="text-align:right">Corte</th><th style="text-align:right">Impacto Final</th><th></th></tr>
       ${rows || '<tr><td colspan="8" style="text-align:center;padding:18px;color:var(--txt-dim);font-size:12px">Nenhum corte lançado ainda.</td></tr>'}

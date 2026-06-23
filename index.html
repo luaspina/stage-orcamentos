@@ -6,37 +6,68 @@
 <title>Stage Films — Orçamento de Produção</title>
 <style>
   :root{
-    --bg:#faf8f4; --panel:#ffffff; --panel2:#f5f3ef; --line:#e5e0d8;
-    --gold:#b8941e; --gold-soft:#c9a227; --txt:#1f1f1f; --txt-dim:#6b6b6b;
-    --blue-in:#3b7dd8; --input-bg:#ffffff;
-    --green:#2d8a4e; --green-bg:#edf7f0;
-    --yellow:#b8860b; --yellow-bg:#fdf6e3;
-    --red:#c0392b; --red-bg:#fdf0ef;
+    /* Identidade Stage Films */
+    --bg:#222e28;            /* verde escuro Stage */
+    --panel:#ffffff;
+    --panel2:#f7f2e3;
+    --line:#e8e0c8;
+    --line-strong:#d4c8a0;
+
+    /* cores Stage */
+    --stage-green:#009B4D;   /* verde Stage */
+    --stage-green-soft:#1ab36a;
+    --stage-green-bg:#e8f6ee;
+    --stage-yellow:#FFCC00;  /* amarelo tangerina */
+    --stage-yellow-dark:#c99f00;
+    --stage-yellow-bg:#fff8d6;
+
+    /* aliases (mantém compatibilidade) */
+    --gold:#c99f00;          /* dourado escuro pra texto sobre fundo claro */
+    --gold-soft:#FFCC00;
+    --green:#009B4D;
+    --green-bg:#e8f6ee;
+    --yellow:#c99f00;        /* texto amarelo legível */
+    --yellow-bg:#fff8d6;
+    --red:#c0392b;
+    --red-bg:#fdf0ef;
+
+    /* hierarquia tipográfica */
+    --txt:#111111;           /* título página — preto forte */
+    --txt-2:#2a2a2a;         /* títulos seção */
+    --txt-3:#555555;         /* subtítulos */
+    --txt-dim:#7a7a7a;       /* labels */
+    --txt-faint:#9a9a9a;     /* auxiliar */
+
+    --blue-in:#1a5fb4; --input-bg:#ffffff;
   }
   *{box-sizing:border-box;margin:0;padding:0}
-  body{background:var(--bg);color:var(--txt);font-family:'DM Sans','Inter',system-ui,sans-serif;font-size:13px;line-height:1.5}
+  body{background:var(--bg);color:#e8e4dc;font-family:'DM Sans','Inter',system-ui,sans-serif;font-size:13px;line-height:1.55}
   .app{max-width:1180px;margin:0 auto;padding:0 0 80px}
   /* Header */
-  .top{background:#ffffff;border-bottom:1px solid var(--line);box-shadow:0 1px 3px rgba(0,0,0,.04);padding:18px 24px;display:flex;align-items:center;justify-content:space-between;gap:16px;position:sticky;top:0;z-index:50}
+  .top{background:#ffffff;border-bottom:1px solid var(--line);padding:16px 28px;display:flex;align-items:center;justify-content:space-between;gap:16px;position:sticky;top:0;z-index:50}
   .brand{font-family:'DM Sans',system-ui,sans-serif}
-  .brand .eyebrow{font-size:10px;letter-spacing:.25em;color:var(--txt-dim);text-transform:uppercase}
-  .brand h1{font-size:19px;font-weight:700;color:var(--txt);letter-spacing:-.01em;margin-top:2px}
+  .brand .eyebrow{font-size:10px;letter-spacing:.22em;color:var(--txt-dim);text-transform:uppercase;font-weight:600}
+  .brand h1{font-size:18px;font-weight:700;color:var(--txt);letter-spacing:-.01em;margin-top:2px}
   .proj-name{background:transparent;border:none;border-bottom:1px solid var(--line);color:var(--txt);font:inherit;font-family:'DM Sans',sans-serif;font-size:19px;font-weight:700;padding:2px 0;width:340px;max-width:50vw}
   .proj-name:focus{outline:none;border-color:var(--gold)}
   /* Tabs */
-  .tabs{display:flex;gap:4px;background:#ffffff;border-bottom:1px solid var(--line);padding:0 24px;overflow-x:auto;position:sticky;top:73px;z-index:49}
-  .tab{padding:12px 18px;background:none;border:none;border-bottom:2px solid transparent;color:var(--txt-dim);font:inherit;font-size:12px;cursor:pointer;white-space:nowrap;text-transform:uppercase;letter-spacing:.06em;transition:.15s}
-  .tab:hover{color:var(--txt)}
-  .tab.active{color:var(--gold);border-bottom-color:var(--gold)}
+  .tabs{display:flex;gap:2px;background:#ffffff;border-bottom:1px solid var(--line);padding:0 24px;overflow-x:auto;position:sticky;top:69px;z-index:49}
+  .tab{padding:14px 18px;background:none;border:none;border-bottom:3px solid transparent;color:var(--txt-faint);font:inherit;font-size:11px;font-weight:500;cursor:pointer;white-space:nowrap;text-transform:uppercase;letter-spacing:.08em;transition:.15s}
+  .tab:hover{color:var(--txt-2)}
+  .tab.active{color:var(--txt);border-bottom-color:var(--stage-yellow);font-weight:700;background:linear-gradient(180deg,transparent,rgba(255,204,0,.06))}
   .tab .dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-left:7px;vertical-align:middle}
   /* Views */
   .view{display:none;padding:24px}
   .view.active{display:block}
-  .panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:20px;margin-bottom:16px}
-  .panel-title{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--txt-dim);margin-bottom:14px}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:24px;margin-bottom:16px}
+  .panel,.kpi,.status,.rosto-bloco,.cat,.folha-doc,.aj-table,.callout{color:var(--txt-2)}
+  .panel .btn-ghost,.cat .btn-ghost{border-color:var(--line);color:var(--txt-dim)}
+  #v-historico table tr td{padding:14px 6px;border-bottom:1px solid var(--line)}
+  #v-historico table tr th{padding:12px 6px}
+  .panel-title{font-size:14px;font-weight:700;letter-spacing:-.01em;color:var(--txt);margin-bottom:18px}
   /* Sections (categorias) */
-  .cat{border:1px solid var(--line);border-radius:8px;margin-bottom:8px;overflow:hidden}
-  .cat-head{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;cursor:pointer;background:var(--panel);user-select:none}
+  .cat{border:1px solid var(--line);border-radius:10px;margin-bottom:10px;overflow:hidden;background:var(--panel)}
+  .cat-head{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;cursor:pointer;background:var(--panel);user-select:none}
   .cat-head:hover{background:var(--panel2)}
   .cat-head .label{display:flex;align-items:center;gap:10px;font-size:12px;text-transform:uppercase;letter-spacing:.05em}
   .cat-head .icon{font-size:14px}
@@ -44,7 +75,7 @@
   .cat-total.zero{color:#444}
   .cat-body{display:none;padding:0 16px 14px;background:var(--panel2)}
   .cat.open .cat-body{display:block}
-  .cat.open .cat-head{background:var(--panel2)}
+  .cat.open .cat-head{background:var(--panel2);border-bottom:1px solid var(--line)}
   .cat-act{background:none;border:none;color:#777;cursor:pointer;font-size:13px;padding:2px 4px;border-radius:4px;line-height:1}
   .cat-act:hover{background:rgba(0,0,0,.05);color:var(--gold)}
   .dest-sel{width:100%;background:var(--input-bg);border:1px solid var(--line);border-radius:5px;color:var(--txt);font:inherit;font-size:11px;padding:6px 4px;cursor:pointer}
@@ -53,7 +84,7 @@
   .cat.open .chev{transform:rotate(180deg)}
   /* Item table */
   table{width:100%;border-collapse:collapse}
-  .ihead th{font-size:9px;color:var(--txt-dim);text-transform:uppercase;letter-spacing:.08em;text-align:left;padding:8px 6px 6px;border-bottom:1px solid var(--line);font-weight:400}
+  .ihead th{font-size:10px;color:var(--txt-2);text-transform:uppercase;letter-spacing:.06em;text-align:left;padding:10px 6px 8px;border-bottom:2px solid var(--line-strong);font-weight:700}
   .irow td{padding:5px 6px;border-bottom:1px solid #141414;vertical-align:middle}
   .irow input{background:var(--input-bg);border:1px solid #222;border-radius:4px;color:var(--blue-in);font:inherit;font-size:12px;padding:5px 7px;width:100%}
   .irow input:focus{outline:none;border-color:var(--gold)}
@@ -75,13 +106,13 @@
   /* Config fiscal */
   .cfg-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
   .cfg-field label{display:block;font-size:10px;color:var(--txt-dim);text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px}
-  .cfg-field .hint{color:#555;text-transform:none;letter-spacing:0}
-  .cfg-field input{width:100%;background:var(--input-bg);border:1px solid #222;border-bottom:2px solid var(--gold);border-radius:4px;color:var(--blue-in);font:inherit;font-size:16px;font-weight:700;padding:8px 10px;text-align:right}
+  .cfg-field .hint{color:var(--txt-dim);text-transform:none;letter-spacing:0}
+  .cfg-field input{width:100%;background:var(--input-bg);border:1px solid var(--line);border-bottom:2px solid var(--gold);border-radius:4px;color:var(--blue-in);font:inherit;font-size:16px;font-weight:700;padding:8px 10px;text-align:right}
   .cfg-field input:focus{outline:none;border-color:var(--gold-soft)}
   /* Result rows */
-  .res-row{display:flex;justify-content:space-between;align-items:baseline;padding:9px 0;border-bottom:1px solid #181818}
+  .res-row{display:flex;justify-content:space-between;align-items:baseline;padding:9px 0;border-bottom:1px solid var(--line)}
   .res-row .rlabel{font-size:11px;color:var(--txt-dim);text-transform:uppercase;letter-spacing:.04em}
-  .res-row .rlabel.sub{padding-left:14px;text-transform:none;color:#666}
+  .res-row .rlabel.sub{padding-left:14px;text-transform:none;color:var(--txt-dim)}
   .res-row .rval{font-size:13px;color:var(--txt);font-weight:500}
   .res-big{padding:14px;border:1px solid var(--line);border-radius:8px;margin-top:12px;background:#0a0a0a}
   .res-big .rb-label{font-size:10px;color:var(--txt-dim);text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px}
@@ -89,16 +120,16 @@
   .res-big.lucro .rb-val{font-size:22px}
   /* KPI grid */
   .kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
-  .kpi{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:14px}
-  .kpi .k-label{font-size:9px;color:var(--txt-dim);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px}
-  .kpi .k-val{font-size:17px;font-weight:700;font-family:'DM Sans',sans-serif}
+  .kpi{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px}
+  .kpi .k-label{font-size:10px;color:var(--txt-dim);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px;font-weight:600}
+  .kpi .k-val{font-size:18px;font-weight:700;font-family:'DM Sans',sans-serif;color:var(--txt);letter-spacing:-.01em}
   /* Status banner */
   .status{border-radius:10px;padding:24px;text-align:center;margin-bottom:16px;border:1px solid}
   .status .s-emoji{font-size:32px;display:block;margin-bottom:8px}
   .status .s-text{font-size:18px;font-weight:700;font-family:'DM Sans',sans-serif;letter-spacing:-.01em}
   .status .s-sub{font-size:12px;margin-top:6px;opacity:.85}
-  .status.green{background:var(--green-bg);border-color:#a0d4b0;color:var(--green)}
-  .status.yellow{background:var(--yellow-bg);border-color:#d4c080;color:var(--yellow)}
+  .status.green{background:var(--stage-green-bg);border-color:#a0d4b0;color:var(--stage-green)}
+  .status.yellow{background:var(--stage-yellow-bg);border-color:#e6c870;color:var(--stage-yellow-dark)}
   .status.red{background:var(--red-bg);border-color:#d4a0a0;color:var(--red)}
   /* Generic colored values */
   .v-green{color:var(--green)} .v-yellow{color:var(--yellow)} .v-red{color:var(--red)}
@@ -142,13 +173,13 @@
   .aj-table input:focus{outline:none;border-color:var(--gold)}
   .aj-table input.txt{color:var(--txt)}
   .aj-table .econ{color:var(--green);font-weight:500;text-align:right;white-space:nowrap}
-  .callout{border-left:2px solid var(--gold);background:#fdf6e3;border-radius:0 8px 8px 0;padding:12px 14px;font-size:11px;color:#8a6d10;line-height:1.6;margin:12px 0}
+  .callout{border-left:3px solid var(--stage-yellow);background:var(--stage-yellow-bg);border-radius:0 8px 8px 0;padding:14px 16px;font-size:12px;color:var(--txt-2);line-height:1.6;margin:12px 0}
   .callout b{color:var(--gold)}
   .client-text{background:#ffffff;border:1px solid var(--line);border:1px solid var(--line);border-radius:8px;padding:16px;font-size:12px;color:#bbb;line-height:1.7;white-space:pre-wrap;margin-top:12px}
   /* Buttons */
   .btn{padding:9px 18px;background:var(--gold);color:#0d0d0d;border:none;border-radius:6px;font:inherit;font-size:12px;font-weight:700;cursor:pointer;text-transform:uppercase;letter-spacing:.06em}
   .btn:hover{background:var(--gold-soft)}
-  .btn-ghost{background:none;border:1px solid var(--line);color:var(--txt-dim)}
+  .btn-ghost{background:none;border:1px solid rgba(255,255,255,.25);color:#d8d4c8}
   .btn-ghost:hover{border-color:var(--gold);color:var(--gold)}
   .btn-row{display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap}
   /* INÍCIO */
@@ -876,74 +907,86 @@ function go(id){
 
 /* ============ RENDER: INÍCIO ============ */
 function renderInicio(){
+  const conceito = (titulo, sub, exp, cor)=>`
+    <div style="background:var(--panel);border:1px solid var(--line);border-left:4px solid ${cor};border-radius:10px;padding:18px 22px;transition:.15s">
+      <div style="font-size:15px;font-weight:700;color:var(--txt);margin-bottom:4px;letter-spacing:-.01em">${titulo}</div>
+      <div style="font-size:12px;color:var(--txt-3);font-weight:500;margin-bottom:8px">${sub}</div>
+      <div style="font-size:12px;color:var(--txt-dim);line-height:1.6">${exp}</div>
+    </div>`;
+
   document.getElementById('v-inicio').innerHTML=`
   <!-- HERO -->
-  <div style="text-align:center;padding:48px 24px 36px">
-    <div style="font-size:32px;font-weight:800;color:var(--txt);letter-spacing:-.02em;line-height:1.2">Sistema de Orçamento<br><span style="color:var(--gold)">Stage Films</span></div>
-    <div style="font-size:14px;color:var(--txt-dim);margin-top:12px;max-width:480px;margin-left:auto;margin-right:auto;line-height:1.6">Monte propostas, proteja margem e documente concessões comerciais.</div>
+  <div style="text-align:center;padding:40px 24px 28px;max-width:680px;margin:0 auto">
+    <div style="display:inline-flex;align-items:center;gap:8px;padding:6px 14px;background:var(--stage-yellow-bg);border-radius:99px;font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--stage-yellow-dark);margin-bottom:18px">Stage Films · Orçamento Audiovisual</div>
+    <div style="font-size:34px;font-weight:800;color:#fff;letter-spacing:-.025em;line-height:1.15">Como funciona o sistema</div>
+    <div style="font-size:15px;color:#c8c4b8;margin-top:14px;line-height:1.6">Esta página explica a lógica financeira do orçamento Stage. Entenda os conceitos antes de preencher.</div>
   </div>
 
   <!-- REGRA DE OURO -->
-  <div style="max-width:600px;margin:0 auto 32px;background:linear-gradient(135deg,#fdf6e3,#fff8e7);border:2px solid var(--gold);border-radius:14px;padding:28px 32px;text-align:center">
-    <div style="font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:var(--gold);font-weight:700;margin-bottom:8px">Regra de Ouro</div>
-    <div style="font-size:16px;font-weight:600;color:var(--txt);line-height:1.5">Você só preenche a aba <b>Dados</b>.<br>Todo o restante é calculado automaticamente.</div>
+  <div style="max-width:760px;margin:0 auto 40px;background:linear-gradient(135deg,#fff8d6,#fffde8);border:2px solid var(--stage-yellow);border-radius:14px;padding:28px 32px;text-align:center">
+    <div style="font-size:10px;text-transform:uppercase;letter-spacing:.14em;color:var(--stage-yellow-dark);font-weight:700;margin-bottom:10px">Regra de Ouro</div>
+    <div style="font-size:18px;font-weight:600;color:var(--txt);line-height:1.5">Você só preenche a aba <b>Dados</b>.<br>Todo o restante é calculado automaticamente.</div>
   </div>
 
-  <!-- FLUXO DE TRABALHO — cards horizontais -->
-  <div style="max-width:720px;margin:0 auto 32px">
-    <div style="font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:var(--txt-dim);text-align:center;margin-bottom:14px;font-weight:600">Fluxo de trabalho</div>
+  <!-- CONCEITOS FINANCEIROS -->
+  <div style="max-width:880px;margin:0 auto 40px">
+    <div style="font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:#b8b4a8;font-weight:700;margin-bottom:14px">Conceitos do sistema</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      ${conceito('Valor Ideal',         'Quanto gostaríamos de cobrar',                                'Soma dos Custos Cliente + Fee da Produtora + Impostos. É o preço cheio, antes de qualquer negociação.', 'var(--stage-yellow)')}
+      ${conceito('Meta de Faturamento', 'Valor final negociado com o cliente',                         'O que o cliente efetivamente aprovou. Quando menor que o Valor Ideal, gera concessão comercial.', 'var(--stage-yellow)')}
+      ${conceito('Fee da Produtora',    'Principal fonte de lucro da Stage',                           'Percentual sobre a Receita Cliente. É a remuneração da produtora pela gestão do projeto — não toca o custo real.', 'var(--stage-green)')}
+      ${conceito('Resultado dos Itens', 'Diferença entre o que cobramos e o que pagamos',              'Quando um item tem Custo Cliente maior que Custo Stage, a diferença vira lucro adicional. Itens com destino Stage são lucro integral.', 'var(--stage-green)')}
+      ${conceito('Concessão Comercial', 'Quanto abrimos mão para fechar o projeto',                    'Diferença entre o Valor Ideal e a Meta de Faturamento. Reduz diretamente o Lucro Líquido — por isso precisa ser documentada.', '#c0392b')}
+      ${conceito('Saúde do Projeto',    'Indicador de margem e sustentabilidade',                      'Calculada como Lucro Líquido ÷ Faturamento Real. Saudável ≥ 20%, Apertado entre 10-20%, Risco abaixo de 10%.', 'var(--stage-green)')}
+    </div>
+  </div>
+
+  <!-- COMPOSIÇÃO DO LUCRO -->
+  <div style="max-width:680px;margin:0 auto 40px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:24px 28px">
+    <div style="font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:#b8b4a8;font-weight:700;margin-bottom:14px">Como o lucro é calculado</div>
+    <div style="font-family:'DM Sans',monospace;font-size:13px;line-height:2.2;color:var(--txt-2)">
+      <div style="display:flex;justify-content:space-between"><span>Fee da Produtora</span><span style="color:var(--stage-green);font-weight:600">+ valor</span></div>
+      <div style="display:flex;justify-content:space-between"><span>Resultado dos Itens</span><span style="color:var(--stage-green);font-weight:600">+ valor</span></div>
+      <div style="display:flex;justify-content:space-between;border-top:1px solid var(--line);padding-top:8px;margin-top:4px;font-weight:700"><span>Lucro Bruto Stage</span><span>=</span></div>
+      <div style="display:flex;justify-content:space-between"><span>Concessão Comercial</span><span style="color:#c0392b;font-weight:600">− valor</span></div>
+      <div style="display:flex;justify-content:space-between;border-top:2px solid var(--stage-yellow);padding-top:8px;margin-top:4px;font-weight:800;color:var(--txt)"><span>Lucro Líquido Stage</span><span>=</span></div>
+    </div>
+  </div>
+
+  <!-- SAÚDE DO PROJETO -->
+  <div style="max-width:760px;margin:0 auto 40px">
+    <div style="font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:#b8b4a8;font-weight:700;margin-bottom:14px">Faixas de saúde</div>
     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
-      ${[
-        ['1','Dados','Preencha itens, custos e categorias','dados'],
-        ['2','Saúde','Veja se o projeto é lucrativo','saude'],
-        ['3','Análise','Entenda a composição do lucro','analise'],
-        ['4','Ajuste','Corte escopo para bater a meta','ajuste'],
-        ['5','Folha de Rosto','Gere o PDF para o cliente','rosto'],
-        ['6','Histórico','Salve e versione orçamentos','historico']
-      ].map(s=>`<div onclick="go('${s[3]}')" style="background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px;cursor:pointer;transition:.15s;text-align:center" onmouseover="this.style.borderColor='var(--gold)'" onmouseout="this.style.borderColor='var(--line)'"><div style="font-size:20px;font-weight:800;color:var(--gold);margin-bottom:4px">${s[0]}</div><div style="font-size:12px;font-weight:600;color:var(--txt)">${s[1]}</div><div style="font-size:10px;color:var(--txt-dim);margin-top:4px;line-height:1.4">${s[2]}</div></div>`).join('')}
-    </div>
-  </div>
-
-  <!-- SEMÁFORO — 3 cards -->
-  <div style="max-width:720px;margin:0 auto 32px">
-    <div style="font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:var(--txt-dim);text-align:center;margin-bottom:14px;font-weight:600">Indicador de Saúde</div>
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
-      <div style="background:var(--green-bg);border:1px solid #c0e0c8;border-radius:10px;padding:16px;text-align:center"><div style="font-size:24px;margin-bottom:4px">🟢</div><div style="font-size:12px;font-weight:700;color:var(--green)">Saudável</div><div style="font-size:10px;color:var(--txt-dim);margin-top:4px">Margem ≥ 20%</div></div>
-      <div style="background:var(--yellow-bg);border:1px solid #e0d0a0;border-radius:10px;padding:16px;text-align:center"><div style="font-size:24px;margin-bottom:4px">🟡</div><div style="font-size:12px;font-weight:700;color:var(--yellow)">Apertado</div><div style="font-size:10px;color:var(--txt-dim);margin-top:4px">Margem 10-20%</div></div>
-      <div style="background:var(--red-bg);border:1px solid #e0b0b0;border-radius:10px;padding:16px;text-align:center"><div style="font-size:24px;margin-bottom:4px">🔴</div><div style="font-size:12px;font-weight:700;color:var(--red)">Risco</div><div style="font-size:10px;color:var(--txt-dim);margin-top:4px">Margem < 10%</div></div>
-    </div>
-  </div>
-
-  <!-- PRINCÍPIOS -->
-  <div style="max-width:720px;margin:0 auto 32px;display:grid;grid-template-columns:1fr 1fr;gap:12px">
-    <div style="background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:20px">
-      <div style="font-size:12px;font-weight:700;color:var(--gold);margin-bottom:8px">💰 Seu lucro é a Fee</div>
-      <div style="font-size:11px;color:var(--txt-dim);line-height:1.6">A Fee da Produtora é o principal componente do lucro. Resultado dos itens é ganho adicional quando você cobra mais do que paga.</div>
-    </div>
-    <div style="background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:20px">
-      <div style="font-size:12px;font-weight:700;color:var(--gold);margin-bottom:8px">🎯 Segure o preço ideal</div>
-      <div style="font-size:11px;color:var(--txt-dim);line-height:1.6">Quando o cliente puxa pra baixo, a diferença entre o Total Ideal e a Meta vira concessão comercial — e come direto do lucro.</div>
-    </div>
-  </div>
-
-  <!-- FLUXO RECOMENDADO -->
-  <div style="max-width:600px;margin:0 auto 32px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:20px 24px">
-    <div style="font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:var(--gold);font-weight:600;margin-bottom:12px">Fluxo recomendado</div>
-    <div style="font-size:12px;color:var(--txt-dim);line-height:2">
-      1. Preencher aba <b style="color:var(--txt)">Dados</b> (itens + custos + categorias)<br>
-      2. Definir <b style="color:var(--txt)">Meta de Faturamento</b><br>
-      3. Validar <b style="color:var(--txt)">Saúde do Projeto</b><br>
-      4. Registrar concessões em <b style="color:var(--txt)">Ajuste de Escopo</b><br>
-      5. Refletir cortes na aba <b style="color:var(--txt)">Dados</b><br>
-      6. Gerar <b style="color:var(--txt)">Folha de Rosto</b> (PDF pro cliente)<br>
-      7. Salvar versão no <b style="color:var(--txt)">Histórico</b>
+      <div style="background:var(--stage-green-bg);border:1px solid #a0d4b0;border-radius:10px;padding:18px;text-align:center">
+        <div style="font-size:22px">🟢</div>
+        <div style="font-size:13px;font-weight:700;color:var(--stage-green);margin-top:6px">Saudável</div>
+        <div style="font-size:11px;color:var(--txt-3);margin-top:6px;line-height:1.5">Margem ≥ 20%<br>Lucro preservado</div>
+      </div>
+      <div style="background:var(--stage-yellow-bg);border:1px solid #e6c870;border-radius:10px;padding:18px;text-align:center">
+        <div style="font-size:22px">🟡</div>
+        <div style="font-size:13px;font-weight:700;color:var(--stage-yellow-dark);margin-top:6px">Apertado</div>
+        <div style="font-size:11px;color:var(--txt-3);margin-top:6px;line-height:1.5">Margem 10-20%<br>Pouca folga</div>
+      </div>
+      <div style="background:#fdf0ef;border:1px solid #e0b0b0;border-radius:10px;padding:18px;text-align:center">
+        <div style="font-size:22px">🔴</div>
+        <div style="font-size:13px;font-weight:700;color:#c0392b;margin-top:6px">Risco</div>
+        <div style="font-size:11px;color:var(--txt-3);margin-top:6px;line-height:1.5">Margem < 10%<br>Reveja escopo</div>
+      </div>
     </div>
   </div>
 
   <!-- O QUE O CLIENTE VÊ -->
-  <div style="max-width:600px;margin:0 auto 32px;background:var(--yellow-bg);border:1px solid #e0d0a0;border-radius:10px;padding:20px 24px">
-    <div style="font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:var(--gold);font-weight:600;margin-bottom:8px">O que vai para o cliente</div>
-    <div style="font-size:12px;color:var(--txt);line-height:1.6">Somente a <b>Folha de Rosto</b> é exportada para PDF. As abas Análise de Custos, Saúde do Projeto, Ajuste de Escopo e Histórico são <b>internas da Stage Films</b>.</div>
+  <div style="max-width:680px;margin:0 auto 40px;background:var(--stage-yellow-bg);border:1px solid #e6c870;border-radius:12px;padding:22px 26px">
+    <div style="font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:var(--stage-yellow-dark);font-weight:700;margin-bottom:10px">O que vai para o cliente</div>
+    <div style="font-size:13px;color:var(--txt-2);line-height:1.7">Somente a <b>Folha de Rosto</b> é exportada para PDF. As abas <b>Análise de Custos</b>, <b>Saúde do Projeto</b>, <b>Ajuste de Escopo</b> e <b>Histórico</b> são internas da Stage Films.</div>
+  </div>
+
+  <!-- FLUXO RÁPIDO (compacto, secundário) -->
+  <div style="max-width:680px;margin:0 auto 48px;display:flex;justify-content:center;flex-wrap:wrap;gap:8px">
+    ${[
+      ['Dados','dados'],['Saúde','saude'],['Análise','analise'],
+      ['Ajuste de Escopo','ajuste'],['Folha de Rosto','rosto'],['Histórico','historico']
+    ].map((s,i)=>`<button onclick="go('${s[1]}')" style="background:var(--panel);border:1px solid var(--line);border-radius:99px;padding:8px 16px;font:inherit;font-size:11px;color:var(--txt-2);cursor:pointer;transition:.15s" onmouseover="this.style.borderColor='var(--stage-yellow)';this.style.background='var(--stage-yellow-bg)'" onmouseout="this.style.borderColor='var(--line)';this.style.background='var(--panel)'">${i+1}. ${s[0]}</button>`).join('')}
   </div>`;
 }
 
@@ -1008,7 +1051,7 @@ function renderDados(){
   document.getElementById('v-dados').innerHTML=`
   <div class="panel">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;gap:12px;flex-wrap:wrap">
-      <div class="panel-title" style="margin:0">Itens do orçamento — preencha Qtd, Custo Cliente, Custo Stage e Destino.</div>
+      <div class="panel-title" style="margin:0;color:#e8e4dc">Itens do orçamento — preencha Qtd, Custo Cliente, Custo Stage e Destino.</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         <button class="btn btn-ghost" style="padding:6px 12px;font-size:10px" onclick="comecarDaTabelaModelo()" title="Carrega a lista completa com valores de tabela e zera as quantidades">↻ Tabela-modelo limpa</button>
         <button class="btn btn-ghost" style="padding:6px 12px;font-size:10px" onclick="toggleEmpty()">${S.hideEmpty?'👁 Mostrar todos os itens':'⊟ Ocultar vazios'}</button>
@@ -1215,13 +1258,13 @@ function renderRosto(){
 
   document.getElementById('v-rosto').innerHTML=`
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;gap:12px;flex-wrap:wrap" class="no-print-folha">
-    <div class="panel-title" style="margin:0">Folha de Rosto — proposta para o cliente</div>
-    <button class="btn" onclick="gerarPDF()" style="background:var(--gold);color:#0d0d0d;border:none;padding:9px 18px;border-radius:8px;font-weight:600;font-size:12px;cursor:pointer">⬇ Gerar PDF para cliente</button>
+    <div class="panel-title" style="margin:0;color:#e8e4dc">Folha de Rosto — proposta para o cliente</div>
+    <button class="btn" onclick="gerarPDF()" style="background:var(--stage-yellow);color:#1a1a1a;border:none;padding:9px 18px;border-radius:8px;font-weight:600;font-size:12px;cursor:pointer">⬇ Gerar PDF para cliente</button>
   </div>
-  <div style="font-size:11px;color:var(--txt-dim);margin-bottom:16px;line-height:1.5" class="no-print-folha">Preencha os campos abaixo. <b>Seções vazias não aparecem no PDF.</b> O Investimento é automático, vindo da aba Dados.</div>
+  <div style="font-size:11px;color:#c8c4b8;margin-bottom:16px;line-height:1.5" class="no-print-folha">Preencha os campos abaixo. <b>Seções vazias não aparecem no PDF.</b> O Investimento é automático, vindo da aba Dados.</div>
   ${adminHTML}
-  <div style="border-top:1px dashed var(--line);margin:24px 0 16px" class="no-print-folha"></div>
-  <div style="font-size:11px;color:var(--gold);text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px" class="no-print-folha">↓ Prévia do PDF (o que o cliente vê)</div>
+  <div style="border-top:1px dashed rgba(255,255,255,.2);margin:24px 0 16px" class="no-print-folha"></div>
+  <div style="font-size:11px;color:#FFCC00;text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px;font-weight:700" class="no-print-folha">↓ Prévia do PDF (o que o cliente vê)</div>
   ${pdfHTML}`;
 }
 
@@ -1235,7 +1278,7 @@ function renderAnalise(){
     const cli=catCliente(c.id), stg=catStage(c.id), res=cli-stg;
     if(cli===0 && stg===0) return '';
     const cls = res>0?'v-green':res<0?'v-red':'';
-    return `<tr><td>${c.icon} ${c.label}</td><td style="text-align:right">${fmt(cli)}</td><td style="text-align:right">${fmt(stg)}</td><td style="text-align:right;font-weight:600" class="${cls}">${res>=0?'+':''}${fmt(res)}</td></tr>`;
+    return `<tr style="border-bottom:1px solid var(--line)"><td style="padding:12px 4px">${c.icon} ${c.label}</td><td style="text-align:right;padding:12px 4px">${fmt(cli)}</td><td style="text-align:right;padding:12px 4px">${fmt(stg)}</td><td style="text-align:right;font-weight:600;padding:12px 4px" class="${cls}">${res>=0?'+':''}${fmt(res)}</td></tr>`;
   }).join('');
 
   // Distribuição: percentual por fase
@@ -1259,9 +1302,9 @@ function renderAnalise(){
     <div style="margin-bottom:20px">
       <div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--txt-dim);margin-bottom:10px">Receita × Custo Real × Resultado por categoria</div>
       <table style="width:100%;border-collapse:collapse;font-size:12px">
-        <tr style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--txt-dim)"><th style="text-align:left;padding:6px 4px">Categoria</th><th style="text-align:right;padding:6px 4px">Receita Cliente</th><th style="text-align:right;padding:6px 4px">Custo Real</th><th style="text-align:right;padding:6px 4px">Resultado</th></tr>
+        <tr style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--txt-dim)"><th style="text-align:left;padding:10px 4px">Categoria</th><th style="text-align:right;padding:10px 4px">Receita Cliente</th><th style="text-align:right;padding:10px 4px">Custo Real</th><th style="text-align:right;padding:10px 4px">Resultado</th></tr>
         ${rowsCat}
-        <tr style="border-top:2px solid var(--line);font-weight:700"><td style="padding:10px 4px">TOTAL</td><td style="text-align:right;padding:10px 4px">${fmt(k.receitaCliente)}</td><td style="text-align:right;padding:10px 4px;color:#e0a85e">${fmt(k.custoReal)}</td><td style="text-align:right;padding:10px 4px" class="${k.resultadoOper>0?'v-green':k.resultadoOper<0?'v-red':''}">${k.resultadoOper>=0?'+':''}${fmt(k.resultadoOper)}</td></tr>
+        <tr style="border-top:2px solid var(--line);font-weight:700"><td style="padding:14px 4px">TOTAL</td><td style="text-align:right;padding:14px 4px">${fmt(k.receitaCliente)}</td><td style="text-align:right;padding:10px 4px;color:#e0a85e">${fmt(k.custoReal)}</td><td style="text-align:right;padding:14px 4px" class="${k.resultadoOper>0?'v-green':k.resultadoOper<0?'v-red':''}">${k.resultadoOper>=0?'+':''}${fmt(k.resultadoOper)}</td></tr>
       </table>
     </div>
 
@@ -1458,7 +1501,7 @@ function renderAjuste(){
       </div>
       <div class="kpi-grid" style="margin-bottom:18px">
         <div class="kpi"><div class="k-label">Cortes Realizados</div><div class="k-val ${cortadoProd>0.5?'v-yellow':''}">${cortadoProd>0.5?fmt(cortadoProd):"Nenhum"}</div></div>
-        <div class="kpi" style="border-color:${fechou?'#2a5c34':'var(--line)'}"><div class="k-label">Novo Total Projetado</div><div class="k-val ${fechou?'v-green':''}">${cortadoProd>0.5?fmt(k.totalCalc - cortadoProd*(1+k.t+k.i)):fmt(k.totalCalc)}</div>${cortadoProd<0.5?'<div style="font-size:9px;color:var(--txt-dim);margin-top:2px">(sem ajustes)</div>':''}</div>
+        <div class="kpi" style="border:2px solid ${fechou?'var(--stage-green)':'var(--stage-yellow)'};background:${fechou?'var(--stage-green-bg)':'var(--stage-yellow-bg)'}"><div class="k-label" style="color:${fechou?'var(--stage-green)':'var(--stage-yellow-dark)'};font-weight:700">Novo Total Projetado</div><div class="k-val" style="font-size:24px;color:var(--txt)">${cortadoProd>0.5?fmt(k.totalCalc - cortadoProd*(1+k.t+k.i)):fmt(k.totalCalc)}</div>${cortadoProd<0.5?'<div style="font-size:10px;color:var(--txt-dim);margin-top:2px">(sem ajustes)</div>':''}</div>
       `:`
         <div class="kpi"><div class="k-label">Situação</div><div class="k-val v-green">${modoSubida?'Folga de '+fmt(gap):'No alvo'}</div></div>
       `}
@@ -1560,7 +1603,7 @@ function renderHistorico(){
       <td>
         <div style="display:flex;align-items:center;gap:8px">
           <div style="font-weight:600;color:var(--txt)">${esc(p.nome)}</div>
-          ${isAtual?'<span style="font-size:9px;background:var(--gold);color:#0d0d0d;padding:2px 6px;border-radius:4px;font-weight:700;letter-spacing:.04em">ATUAL</span>':''}
+          ${isAtual?'<span style="font-size:9px;background:var(--stage-green);color:#fff;padding:3px 8px;border-radius:4px;font-weight:700;letter-spacing:.08em">ATUAL</span>':''}
         </div>
         <div style="font-size:10px;color:var(--txt-dim);margin-top:2px">
           <span style="color:var(--gold)">${esc(versao)}</span> · ${dataTxt}
